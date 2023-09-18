@@ -3,6 +3,7 @@ using Dates
 using Statistics
 using GeoDatasets
 using Interpolations
+using ImageFiltering
 
 include("plotting.jl")
 
@@ -36,7 +37,7 @@ struct AFAIParameters{U<:Integer, T<:Real}
 
     function AFAIParameters(;
         window_size_coast_mask = 20,
-        window_size_median_filter = 50,
+        window_size_median_filter = 51,
         threshold_median = 1.79e-4,
         afai_U0 = 4.41e-2,
         afai_L0 = -8.77e-4)
@@ -83,7 +84,7 @@ mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
     params::AFAIParameters{U, T}
 
     function AFAI(filename::String, params::AFAIParameters)
-        extension = infile[findlast(==('.'), infile)+1:end]
+        extension = filename[findlast(==('.'), filename)+1:end]
         @assert extension == "nc" "Require a NetCDF (.nc) file."
 
         tref = DateTime(1970, 1, 1, 0, 0, 0)
@@ -122,7 +123,7 @@ version of `AFAI.afai`.
 Use plot(coast_mask::CoastMask).
 """
 struct CoastMask{T<:Real}
-    mask::Array{T,3}
+    mask::Matrix{T}
 end
 
 function CoastMask(afai::AFAI)
@@ -163,7 +164,7 @@ function coast_masked(afai::AFAI, coast_mask::CoastMask)
     afai_masked = zeros(eltype(afai_unmasked), size(afai_unmasked))
     mask = coast_mask.mask
 
-    for t_i = 1:length(time)
+    for t_i = 1:size(afai_unmasked, 3)
         afai_masked[:,:,t_i] = afai_unmasked[:,:,t_i] .* mask
     end
 
@@ -198,13 +199,16 @@ function plot(coast_mask::CoastMask)
 end
 
 function plot(afai::AFAI; coast_mask::Union{Nothing, CoastMask} = nothing)
-    fig = default_fig()
+    lon = afai.lon
+    lat = afai.lat
 
     if coast_mask === nothing
         afai_data = afai.afai
     else
         afai_data = coast_masked(afai, coast_mask)
     end
+
+    fig = default_fig()
 
     # Day 8
     ax = geo_axis(fig[1, 1], title = L"\text{Days 1-8}", limits = (-100, -38, 0, 35))
@@ -240,32 +244,27 @@ is `NaN`, the value of `afai_median` is also `NaN`.
 This can be a lengthy computation.
 """
 function afai_median(afai::AFAI)
-    lon = afai.lon
-    lat = afai.lat
     afai_data = afai.afai
     window_size = afai.params.window_size_median_filter
-    afai_median = zeros(eltype(afai_data), size(afai_data))
+    afai_median_data = zeros(eltype(afai_data), size(afai_data))
 
-    for t_i = 1:size(afai_median, 3)
-
-        @info "Compuing AFAI median, time slice $(t_i)/4"
-
-        for lon_i = 1:size(afai_median, 1)
-            for lat_i = 1:size(afai_median, 2)
-                lons = max(1, lon_i - round(Integer, window_size/2)):min(length(lon), lon_i + round(Integer, window_size/2))
-                lats = max(1, lat_i - round(Integer, window_size/2)):min(length(lat), lat_i + round(Integer, window_size/2))
-                valid_pixels = [x for x in afai_data[lons, lats, t_i] if !isnan(x)]
-
-                if length(valid_pixels) > 0
-                    afai_median[lon_i, lat_i, t_i] = median(valid_pixels)
-                else
-                    afai_median[lon_i, lat_i, t_i] = NaN
-                end
-            end
+    _median(patch) = begin
+        filtered = filter(x->!isnan(x), patch)
+        if length(filtered) > 0
+            median(filtered)
+        else
+            NaN
         end
     end
 
-    return afai_median
+    for t_i = 1:size(afai_median_data, 3)
+
+        @info "Compuing AFAI median, time slice $(t_i)/4"
+
+        afai_median_data[:, :, t_i] = mapwindow(_median, afai_data[:, :, t_i], (window_size, window_size))
+    end
+
+    return afai_median_data
 end
 
 """
@@ -365,22 +364,97 @@ function coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon
 end
 
 """
-    distribution!(coverage::Array; quant::Real = 0.7)
+    struct SargassumDistribution{T, R}
+
+### Fields
+
+- `lon`:
+- `lat`:
+- `time`:
+- `sargassum`
 """
-function distribution!(coverage::Array; quant::Real = 0.7)
-    thresh = quantile(filter(x -> x > 0.0, coverage), quant)
-    for i = 1:size(coverage, 1)
-        for j = 1:size(coverage, 2)
-            if coverage[i, j] < thresh 
-                coverage[i, j] = 0.0
-            else
-                coverage[i, j] = log10(coverage[i, j])
+struct SargassumDistribution{T<:Real, R<:Real}
+    lon::Vector{T}
+    lat::Vector{T}
+    time::DateTime
+    sargassum::Matrix{R}
+
+    function SargassumDistribution(
+        lon::Vector{T}, 
+        lat::Vector{T}, 
+        date::DateTime, 
+        coverage_tot::Matrix{R}; 
+        quant::Real = 0.7) where {T<:Real, R<:Real}
+    
+        sargassum = zeros(eltype(coverage_tot), size(coverage_tot))
+        thresh = quantile(filter(x -> x > 0.0, coverage_tot), quant)
+    
+        for i = 1:size(coverage_tot, 1)
+            for j = 1:size(coverage_tot, 2)
+                if coverage_tot[i, j] >= thresh 
+                    # coverage_tot[i, j] = log10(coverage_tot[i, j])
+                    sargassum[i, j] = coverage_tot[i, j]^(1/6)
+                end
             end
         end
+    
+        sargassum = sargassum / sum(sargassum)
+    
+        return new{eltype(lon), eltype(sargassum)}(lon, lat, date, sargassum)
     end
-
-    coverage = coverage / sum(coverage)
-
-    return nothing
 end
 
+
+function plot(sargassum_distribution::SargassumDistribution)
+    lon = sargassum_distribution.lon
+    lat = sargassum_distribution.lat
+    sarg = sargassum_distribution.sargassum
+
+    year_string = sargassum_distribution.time |> year
+    month_string = sargassum_distribution.time |> monthname
+
+    fig = Figure(
+        # resolution = (1920, 1080), 
+        resolution = (1920, 800),
+        fontsize = 50,
+        figure_padding = (5, 100, 5, 5))
+
+    ax = geo_axis(fig[1, 1], title = L"\text{%$(month_string) %$(year_string)}", limits = (-90, -38, -5, 22))
+    
+    limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
+
+    heatmap!(ax, lon, lat, sarg, 
+        colormap = Reverse(:RdYlGn),
+        colorrange = limits,
+        lowclip = :white)
+
+    data_legend!(fig[1, 2], 
+        ticks = collect(range(limits[1], limits[2], length = 4))
+    )
+
+    colsize!(fig.layout, 2, Relative(1/15)) # relative width of data legend 
+
+    land!(ax)
+    
+    fig
+end
+
+"""
+    afai_to_distribution(file::String; params::AFAIParameters = AFAIParameters())
+"""
+function afai_to_distribution(file::String; params::AFAIParameters = AFAIParameters())
+    afai = AFAI(file, params)
+    
+    coast_mask = CoastMask(afai)
+    coast_masked!(afai, coast_mask)
+    
+    afai_median_background = afai_median(afai)
+    
+    classification = pixel_classification(afai, afai_median = afai_median_background);
+    
+    unmixed = pixel_unmixing(afai, pixel_classification = classification);
+    
+    lon_bins, lat_bins, coverage_tot = coverage(afai, unmixed = unmixed)
+    
+    return SargassumDistribution(lon_bins, lat_bins, DateTime(2018, 4), coverage_tot)
+end
