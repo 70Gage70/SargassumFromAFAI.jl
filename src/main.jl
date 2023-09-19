@@ -490,6 +490,52 @@ function distribution_to_nc(distribution::SargassumDistribution, outfile::String
     return outfile
 end
 
+function distribution_to_nc(
+    distributions::Vector{<:SargassumDistribution}, 
+    months_since_2000::Vector{<:Integer},
+    outfile::String)
+    extension = outfile[findlast(==('.'), outfile)+1:end]
+    @assert extension == "nc" "Output should be a NetCDF (.nc) file."
+
+    lon = distributions[1].lon
+    lat = distributions[1].lat
+
+    sarg = zeros(eltype(distributions[1].sargassum), size(distributions[1].sargassum)..., length(months_since_2000))
+
+    for i = 1:length(distributions)
+        sarg[:,:,i] .= distributions[i].sargassum
+    end
+
+    varatts = Dict(
+        "longname" => "Sargassum density",
+        "units"    => "fraction")
+    lonatts = Dict(
+        "longname" => "Longitude",
+        "units"    => "degrees east")
+    latatts = Dict(
+        "longname" => "Latitude",
+        "units"    => "degrees north")
+    timeatts = Dict(
+        "longname" => "Time",
+        "units"    => "months since January, 2000")
+    
+    
+    isfile(outfile) && rm(outfile)
+
+    nccreate(outfile, 
+        "sargassum",
+        "lon", lon, lonatts,
+        "lat", lat, latatts, 
+        "time", months_since_2000, timeatts, 
+        atts=varatts)
+
+    ncwrite(sarg, outfile, "sargassum")
+
+    @info "Sargassum distribution written to $(outfile)."
+
+    return outfile
+end
+
 
 """
     afai_to_distribution(file::String, year::Integer, month::Integer; params::AFAIParameters = AFAIParameters())
