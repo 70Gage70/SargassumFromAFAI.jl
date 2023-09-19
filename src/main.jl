@@ -403,6 +403,19 @@ struct SargassumDistribution{T<:Real, R<:Real}
     
         return new{eltype(lon), eltype(sargassum)}(lon, lat, date, sargassum)
     end
+
+    function SargassumDistribution(infile::String)
+        extension = infile[findlast(==('.'), infile)+1:end]
+        @assert extension == "nc" "Require a NetCDF (.nc) file."
+
+        lon = ncread(infile, "lon")
+        lat = ncread(infile, "lat")
+        sarg = ncread(infile, "sargassum")
+        yr = ncgetatt(infile, "sargassum", "year")
+        mnth = ncgetatt(infile, "sargassum", "month")
+
+        return new{eltype(lon), eltype(sarg)}(lon, lat, DateTime(yr, mnth), sarg)
+    end
 end
 
 
@@ -440,8 +453,46 @@ function plot(sargassum_distribution::SargassumDistribution)
     fig
 end
 
+function distribution_to_nc(distribution::SargassumDistribution, outfile::String)
+    extension = outfile[findlast(==('.'), outfile)+1:end]
+    @assert extension == "nc" "Output should be a NetCDF (.nc) file."
+
+    lon = distribution.lon
+    lat = distribution.lat
+    sarg = distribution.sargassum
+    yr = Year(distribution.time).value
+    mnth = Month(distribution.time).value
+
+    varatts = Dict(
+        "longname" => "Sargassum density",
+        "units"    => "fraction",
+        "year" => yr,
+        "month" => mnth)
+    lonatts = Dict(
+        "longname" => "Longitude",
+        "units"    => "degrees east")
+    latatts = Dict(
+        "longname" => "Latitude",
+        "units"    => "degrees north")
+    
+    isfile(outfile) && rm(outfile)
+
+    nccreate(outfile, 
+        "sargassum",
+        "lon", lon, lonatts,
+        "lat", lat, latatts, 
+        atts=varatts)
+
+    ncwrite(sarg, outfile, "sargassum")
+
+    @info "Sargassum distribution written to $(outfile)."
+
+    return outfile
+end
+
+
 """
-    afai_to_distribution(file::String; params::AFAIParameters = AFAIParameters())
+    afai_to_distribution(file::String, year::Integer, month::Integer; params::AFAIParameters = AFAIParameters())
 """
 function afai_to_distribution(
     file::String,
