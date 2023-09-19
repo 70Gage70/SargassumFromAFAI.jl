@@ -5,6 +5,7 @@ export coast_masked, coast_masked!, afai_median, pixel_classification, pixel_unm
 export distribution_to_nc, afai_to_distribution
 export plot
 export download_data, data_path, data_rm
+export TREF, time2months, months2time
 
 include(joinpath(@__DIR__, "main.jl"))
 include(joinpath(@__DIR__, "..", "data", "remote-files.jl"))
