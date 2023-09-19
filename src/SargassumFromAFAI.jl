@@ -1,5 +1,7 @@
 module SargassumFromAFAI
 
-# Write your package code here.
+export 
+
+include("main.jl")
 
 end

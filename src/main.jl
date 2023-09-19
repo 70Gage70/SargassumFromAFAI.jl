@@ -387,7 +387,8 @@ struct SargassumDistribution{T<:Real, R<:Real}
         quant::Real = 0.7) where {T<:Real, R<:Real}
     
         sargassum = zeros(eltype(coverage_tot), size(coverage_tot))
-        thresh = quantile(filter(x -> x > 0.0, coverage_tot), quant)
+        pos_coverage = filter(x -> x > 0.0, coverage_tot)
+        thresh = length(pos_coverage) > 0 ? quantile(pos_coverage, quant) : 0.0
     
         for i = 1:size(coverage_tot, 1)
             for j = 1:size(coverage_tot, 2)
@@ -410,8 +411,8 @@ function plot(sargassum_distribution::SargassumDistribution)
     lat = sargassum_distribution.lat
     sarg = sargassum_distribution.sargassum
 
-    year_string = sargassum_distribution.time |> year
-    month_string = sargassum_distribution.time |> monthname
+    year_string = Year(sargassum_distribution.time).value
+    month_string = monthname(sargassum_distribution.time)
 
     fig = Figure(
         # resolution = (1920, 1080), 
@@ -442,15 +443,23 @@ end
 """
     afai_to_distribution(file::String; params::AFAIParameters = AFAIParameters())
 """
-function afai_to_distribution(file::String; params::AFAIParameters = AFAIParameters())
+function afai_to_distribution(
+    file::String; 
+    params::AFAIParameters = AFAIParameters(),
+    apply_median_filter::Bool = true)
+
     afai = AFAI(file, params)
     
     coast_mask = CoastMask(afai)
     coast_masked!(afai, coast_mask)
     
-    afai_median_background = afai_median(afai)
+    if apply_median_filter
+        afai_background = afai_median(afai)
+    else
+        afai_background = afai.afai
+    end
     
-    classification = pixel_classification(afai, afai_median = afai_median_background);
+    classification = pixel_classification(afai, afai_median = afai_background);
     
     unmixed = pixel_unmixing(afai, pixel_classification = classification);
     
