@@ -185,3 +185,7 @@ Temporary Items
 # so files (sysimages)
 
 *.so
+
+# bulletins 
+
+/bulletins

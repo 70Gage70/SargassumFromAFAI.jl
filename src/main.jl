@@ -444,9 +444,14 @@ end
     afai_to_distribution(file::String; params::AFAIParameters = AFAIParameters())
 """
 function afai_to_distribution(
-    file::String; 
+    file::String,
+    year::Integer,
+    month::Integer; 
     params::AFAIParameters = AFAIParameters(),
     apply_median_filter::Bool = true)
+
+    @assert year > 0
+    @assert 1 <= month <= 12
 
     afai = AFAI(file, params)
     
@@ -465,5 +470,5 @@ function afai_to_distribution(
     
     lon_bins, lat_bins, coverage_tot = coverage(afai, unmixed = unmixed)
     
-    return SargassumDistribution(lon_bins, lat_bins, DateTime(2018, 4), coverage_tot)
+    return SargassumDistribution(lon_bins, lat_bins, DateTime(year, month), coverage_tot)
 end
