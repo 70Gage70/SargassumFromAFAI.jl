@@ -492,6 +492,9 @@ function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outf
     return outfile
 end
 
+function distribution_to_nc(distribution::SargassumDistribution, outfile::String)
+    return distribution_to_nc([distribution], outfile)
+end
 
 function plot(sargassum_distribution::SargassumDistribution)
     lon = sargassum_distribution.lon
