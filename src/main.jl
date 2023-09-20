@@ -18,11 +18,12 @@ A container for the parameters required to process the AFAI data.
 
 ### Fields 
 
-- `window_size_coast_mask`: 
-- `window_size_median_filter`: 
-- `threshold_median`: 
-- `afai_U0`:
-- `afai_L0`:
+- `window_size_coast_mask`: An `Integer` giving the distance, in gridpoints, such that all 
+                            gridpoints within that distance of the coastline are masked (removed.) Default: `20`.
+- `window_size_median_filter`: An `Integer` giving the size, in gridpoints of the median filter applied to the data. Default: `51`.
+- `threshold_median`: A `Real` such that all median-filtered `afai` values below it are considered to not contain Sargassum. Default: `1.79e-4`.
+- `afai_U0`: A `Real` giving the global upper limit on `afai` values for Sargassum-containing pixels. Default: `4.41e-2`.
+- `afai_L0`: A `Real` giving the global lower limit on `afai` values for Sargassum-containing pixels. Default: `-8.77e-4`.
 
 ### Constructors 
 
@@ -63,7 +64,7 @@ A container for the AFAI data.
 - `lat`: A `Vector` of latitudes.
 - `time`: A `Vector` of `DateTime`s.
 - `afai`: An array of AFAI values of the form `afai[lon, lat, time]`.
-- `params`: A `AFAIParameters`.
+- `params`: A [`AFAIParameters`](@ref).
 
 ### Constructor
 
@@ -76,6 +77,8 @@ https://cwcgom.aoml.noaa.gov/erddap/griddap/noaa_aoml_atlantic_oceanwatch_AFAI_7
 ### Plotting 
 
 Use `plot(afai::AFAI; coast_mask::Union{Nothing, CoastMask} = nothing)`.
+
+The `afai` data are masked if `coast_mask` is provided, and plotted as-is otherwise.
 """
 mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
     lon::Vector{T}
@@ -114,10 +117,13 @@ the entries of `AFAI.afai[:,:,t]` on the coast by `NaN` and leaves other entries
 
 Use `CoastMask(afai::AFAI)`.
 
-### Convenience Function 
+### Convenience Functions 
 
 Use `coast_masked(afai::AFAI, coast_mask::CoastMask)` to create and return the coast masked
 version of `AFAI.afai`.
+
+Use `coast_masked!(afai::AFAI, coast_mask::CoastMask)` to update `AFAI.afai` to the coast 
+masked version in-place.
 
 ### Plotting 
 
@@ -333,7 +339,12 @@ end
 """
     coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon::Integer = 30, step_lat::Integer = 40)
 
+Divide the computational domain into a regular grid and compute the mean value of the unmixed pixels in each bin. If `unmixed`
+is not provided, it is computed automatically. Return a tuple `(lon_bins_centers, lat_bins_centers, coverage_tot)` 
+where `coverage_tot` is the sum over time of each bin's coverage.
 
+The default grid uses a step size of `step_lon = 30` gridpoints in the longitudinal direction and `step_lat = 40` 
+gridpoints in the latitudinal direction.
 """
 function coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon::Integer = 30, step_lat::Integer = 40)
     lon = afai.lon
@@ -367,12 +378,35 @@ end
 """
     struct SargassumDistribution{T, R}
 
+A container for a gridded distribution of Sargassum.
+
 ### Fields
 
-- `lon`:
-- `lat`:
-- `time`:
-- `sargassum`
+- `lon`: A vector of longitudes.
+- `lat`: A vector of latitudes.
+- `time`: A `DateTime` giving the month and year when the distribution was computed.
+- `sargassum`: A `Matrix` with dimensions `(lon x lat)` whose entries give the fractional coverage of Sargassum at each gridpoint. 
+Each value is expressed as a percentage of the total coverage in the entire grid each point represents, that is, `sargassum` is
+a probability distribution on the grid of longitudes and latitudes.
+
+### Constructing manually
+
+In general, `SargassumDistribution` should not be constructed directly. The total coverage should be computed using [`coverage`](coverage) to 
+obtain `lon`, `lat` and `coverage_tot`. Then, use
+
+`SargassumDistribution(lon, lat, date, coverage_tot; quant::Real = 0.7)`
+
+where `date` is of the form `DateTime(year, month)` and `quant` is the quantile below which bins are discarded.
+
+### Constructing from a NetCDF file
+
+Use `SargassumDistribution(infile::String)`.
+
+A dictionary with entries of the form `(year, month) => distribution` is returned.
+
+### Plotting
+
+use `plot(dist::SargassumDistribution)`.
 """
 struct SargassumDistribution{T<:Real, R<:Real}
     lon::Vector{T}
@@ -425,7 +459,15 @@ struct SargassumDistribution{T<:Real, R<:Real}
     end
 end
 
+"""
+    distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outfile::String)
 
+Write the vector of `SargassumDistribution`s in `distributions` to the NetCDF file named in `outfile`. That is,
+`outfile` should be of the form `name.nc`.
+
+If writing a single distribution is desired, then `distribution_to_nc([dist], outfile)` or `distribution_to_nc(dist, outfile)`
+both have identical behavior.
+"""
 function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outfile::String)
     extension = outfile[findlast(==('.'), outfile)+1:end]
     @assert extension == "nc" "Output should be a NetCDF (.nc) file."
@@ -532,7 +574,13 @@ end
 
 
 """
-    afai_to_distribution(file::String, year::Integer, month::Integer; params::AFAIParameters = AFAIParameters())
+    afai_to_distribution(file::String, year::Integer, month::Integer; params::AFAIParameters = AFAIParameters(), apply_median_filter::Bool = false)
+
+Compute a [`SargassumDistribution`](@ref) from the raw data file `file`. The year and month of the calculation must be 
+provided manually. This is the highest level function. 
+
+One can pass `apply_median_filter = false` to skip the median filtering for testing purposes, in general this will likely give nonsense results 
+unless `params` is also modified.
 """
 function afai_to_distribution(
     file::String,

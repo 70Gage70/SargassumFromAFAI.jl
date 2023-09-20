@@ -2,11 +2,26 @@ using Dates
 
 """
     const TREF
+
+The reference time for the `time` variable in distribution NetCDFs. 
+
+Equal to January 1, 2000.
 """
 const TREF = DateTime(2000, 1)
 
 """
-    time2months
+    time2months(yr::Integer, mnth::Integer)
+
+Calculate the number of months since [`TREF`](@ref) of the date with year `yr` and month `mnth`.
+
+Can be applied as `time2months(yearmonth::Tuple{Integer, Integer})`.
+
+Can be applied as `time2months(time::DateTime)`.
+
+### Example
+
+time2months(2018, 4)
+219
 """
 function time2months(yr::Integer, mnth::Integer)
     δyr = yr - year(TREF)
@@ -27,7 +42,14 @@ function time2months(time::DateTime)
 end
 
 """
-    months2time
+    months2time(months::Integer)
+
+Calculate the date in `(year, month)` format of `months` months since [`TREF`](@ref).
+
+### Example
+
+time2months(219)
+(2018, 4)
 """
 function months2time(months::Integer)
     return yearmonth(TREF + Month(months))
