@@ -10,7 +10,7 @@ In the Julia REPL, execute the following
 
 ```julia
 import Pkg
-Pkg.add("https://github.com/70Gage70/SargassumFromAFAI.jl.git")
+Pkg.add(url = "https://github.com/70Gage70/SargassumFromAFAI.jl.git")
 ```
 
 ## Quickest Start
