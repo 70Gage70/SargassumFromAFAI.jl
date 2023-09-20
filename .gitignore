@@ -151,7 +151,8 @@ Temporary Items
 
 # NetCDF
 
-*.nc  
+*.nc
+!dist-2018-4.nc  
   
 
 # workspace
