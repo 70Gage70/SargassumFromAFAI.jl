@@ -19,8 +19,12 @@ Pkg.add("https://github.com/70Gage70/SargassumFromAFAI.jl.git")
 
 using SargassumFromAFAI
 
+dist = SargassumDistribution(EXAMPLE_DIST_APRIL_2018)[(2018, 4)]
+plot(dist)
 
 ```
 
+[!["April 2018 Sargassum Distribution"](examples/april-2018.png)](https://70gage70.github.io/SargassumFromAFAI.jl/)
 
-## Quickest Start
+
+## Quick Start
