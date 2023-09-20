@@ -24,6 +24,7 @@ A container for the parameters required to process the AFAI data.
 - `threshold_median`: A `Real` such that all median-filtered `afai` values below it are considered to not contain Sargassum. Default: `1.79e-4`.
 - `afai_U0`: A `Real` giving the global upper limit on `afai` values for Sargassum-containing pixels. Default: `4.41e-2`.
 - `afai_L0`: A `Real` giving the global lower limit on `afai` values for Sargassum-containing pixels. Default: `-8.77e-4`.
+- `distribution_quant`: A `Real` giving the quantile below which bins are discarded in the final distribution calculation. Default: `0.7`.
 
 ### Constructors 
 
@@ -35,6 +36,7 @@ struct AFAIParameters{U<:Integer, T<:Real}
     threshold_median::T
     afai_U0::T 
     afai_L0::T
+    distribution_quant::T
 
 
     function AFAIParameters(;
@@ -42,14 +44,16 @@ struct AFAIParameters{U<:Integer, T<:Real}
         window_size_median_filter = 51,
         threshold_median = 1.79e-4,
         afai_U0 = 4.41e-2,
-        afai_L0 = -8.77e-4)
+        afai_L0 = -8.77e-4,
+        distribution_quant = 0.7)
 
         return new{eltype(window_size_coast_mask), eltype(threshold_median)}(
             window_size_coast_mask,
             window_size_median_filter,
             threshold_median,
             afai_U0,
-            afai_L0)
+            afai_L0,
+            distribution_quant)
     end
 end
 
@@ -394,9 +398,10 @@ a probability distribution on the grid of longitudes and latitudes.
 In general, `SargassumDistribution` should not be constructed directly. The total coverage should be computed using [`coverage`](coverage) to 
 obtain `lon`, `lat` and `coverage_tot`. Then, use
 
-`SargassumDistribution(lon, lat, date, coverage_tot; quant::Real = 0.7)`
+`SargassumDistribution(afai, lon, lat, date, coverage_tot)`
 
-where `date` is of the form `DateTime(year, month)` and `quant` is the quantile below which bins are discarded.
+where `date` is of the form `DateTime(year, month)`. The coverage is converted to a distribution by first discarding points below the 
+quantile in `afai.params.distribution_quant`, taking the 1/6 root of each bin, and then normalizing.
 
 ### Constructing from a NetCDF file
 
@@ -415,15 +420,15 @@ struct SargassumDistribution{T<:Real, R<:Real}
     sargassum::Matrix{R}
 
     function SargassumDistribution(
+        afai::AFAI,
         lon::Vector{T}, 
         lat::Vector{T}, 
         date::DateTime, 
-        coverage_tot::Matrix{R}; 
-        quant::Real = 0.7) where {T<:Real, R<:Real}
+        coverage_tot::Matrix{R}) where {T<:Real, R<:Real}
     
         sargassum = zeros(eltype(coverage_tot), size(coverage_tot))
         pos_coverage = filter(x -> x > 0.0, coverage_tot)
-        thresh = length(pos_coverage) > 0 ? quantile(pos_coverage, quant) : 0.0
+        thresh = length(pos_coverage) > 0 ? quantile(pos_coverage, afai.params.distribution_quant) : 0.0
     
         for i = 1:size(coverage_tot, 1)
             for j = 1:size(coverage_tot, 2)
@@ -609,5 +614,5 @@ function afai_to_distribution(
     
     lon_bins, lat_bins, coverage_tot = coverage(afai, unmixed = unmixed)
     
-    return SargassumDistribution(lon_bins, lat_bins, DateTime(year, month), coverage_tot)
+    return SargassumDistribution(afai, lon_bins, lat_bins, DateTime(year, month), coverage_tot)
 end
