@@ -19,8 +19,8 @@ Pkg.add("https://github.com/70Gage70/SargassumFromAFAI.jl.git")
 
 using SargassumFromAFAI
 
-dist = SargassumDistribution(EXAMPLE_DIST_APRIL_2018)[(2018, 4)]
-plot(dist)
+dist_april_2018 = SargassumDistribution(EXAMPLE_DIST_APRIL_2018)[(2018, 4)]
+plot(dist_april_2018)
 
 ```
 
@@ -28,3 +28,44 @@ plot(dist)
 
 
 ## Quick Start
+
+We'll demonstrate how to generate the *Sargassum* distribution for May 2018 from scratch. Begin by 
+downloading the NetCDF data using ERDDAP:
+
+```julia
+
+download_data(2018, 5) # roughly 150 MB .nc file
+path_may_2018 = data_path(2018, 5)
+```
+
+Now we compute the distribution using the highest level function. This generally 
+takes several minutes.
+
+```julia
+dist_may_2018 = afai_to_distribution(path_may_2018, 2018, 5)
+```
+
+Now we can plot the data
+
+```julia
+plot(dist_may_2018)
+```
+
+[!["May 2018 Sargassum Distribution"](examples/may-2018.png)](https://70gage70.github.io/SargassumFromAFAI.jl/)
+
+And we can save our distribution as a NetCDF file for later use
+
+```julia
+distribution_to_nc(dist_may_2018, "dist-2018-5.nc")
+```
+
+To load our distribution,
+
+```julia
+loaded = SargassumDistribution("dist-2018-5.nc")
+```
+
+Note that `loaded` is a dictionary mapping `(year, month)` pairs to distributions. Hence, `loaded[(2018, 5)]` should be equal to `dist_may_2018`. You can check your computed distribution against `EXAMPLE_DIST_MAY_2018`. Save multiple distributions into one NetCDF file via
+```julia
+distribution_to_nc([dist_april_2018, dist_may_2018], "april_and_may_2018.nc")
+```
