@@ -411,7 +411,7 @@ A dictionary with entries of the form `(year, month) => distribution` is returne
 
 ### Plotting
 
-use `plot(dist::SargassumDistribution)`.
+use `plot(dist::SargassumDistribution; limits = (-90, -38, -5, 22), resolution = (1920, 800), legend = true)`.
 """
 struct SargassumDistribution{T<:Real, R<:Real}
     lon::Vector{T}
@@ -543,7 +543,12 @@ function distribution_to_nc(distribution::SargassumDistribution, outfile::String
     return distribution_to_nc([distribution], outfile)
 end
 
-function plot(sargassum_distribution::SargassumDistribution)
+function plot(
+    sargassum_distribution::SargassumDistribution;
+    limits::NTuple{4, Int64} = (-90, -38, -5, 22),
+    resolution::NTuple{2, Int64} = (1920, 800),
+    legend::Bool = true)
+
     lon = sargassum_distribution.lon
     lat = sargassum_distribution.lat
     sarg = sargassum_distribution.sargassum
@@ -552,12 +557,11 @@ function plot(sargassum_distribution::SargassumDistribution)
     month_string = monthname(sargassum_distribution.time)
 
     fig = Figure(
-        # resolution = (1920, 1080), 
-        resolution = (1920, 800),
+        resolution = resolution,
         fontsize = 50,
         figure_padding = (5, 100, 5, 5))
 
-    ax = geo_axis(fig[1, 1], title = L"\text{%$(month_string) %$(year_string)}", limits = (-90, -38, -5, 22))
+    ax = geo_axis(fig[1, 1], title = L"\text{%$(month_string) %$(year_string)}", limits = limits)
     
     limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
 
@@ -566,11 +570,13 @@ function plot(sargassum_distribution::SargassumDistribution)
         colorrange = limits,
         lowclip = :white)
 
-    data_legend!(fig[1, 2], 
-        ticks = collect(range(limits[1], limits[2], length = 4))
-    )
+    if legend
+        data_legend!(fig[1, 2], 
+            ticks = collect(range(limits[1], limits[2], length = 4))
+        )
 
-    colsize!(fig.layout, 2, Relative(1/15)) # relative width of data legend 
+        colsize!(fig.layout, 2, Relative(1/15)) # relative width of data legend 
+    end
 
     land!(ax)
     
