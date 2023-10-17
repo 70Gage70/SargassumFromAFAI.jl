@@ -7,6 +7,7 @@ export plot
 export download_data, data_path, data_rm
 export TREF, time2months, months2time
 export EXAMPLE_DIST_APRIL_2018, EXAMPLE_DIST_MAY_2018
+export show
 
 include(joinpath(@__DIR__, "main.jl"))
 include(joinpath(@__DIR__, "..", "data", "remote-files.jl"))

@@ -84,7 +84,7 @@ function data_legend!(
             colormap = colormap,
             ticklabelsize = tick_fontsize, 
             ticks = ticks, 
-            tickformat = values -> [latexify(value, fmt = FancyNumberFormatter(3)) for value in values],
+            tickformat = values -> [latexify(100*value, fmt = FancyNumberFormatter(3)) for value in values],
             width = barwidth,
             valign = :top,
             tellheight = false
