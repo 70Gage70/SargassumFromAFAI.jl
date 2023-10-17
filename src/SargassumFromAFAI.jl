@@ -1,7 +1,7 @@
 module SargassumFromAFAI
 
 export AFAIParameters, AFAI, CoastMask, SargassumDistribution
-export coast_masked, coast_masked!, afai_median, pixel_classification, pixel_unmixing, coverage
+export coast_masked, coast_masked!, afai_median, pixel_classification, pixel_unmixing, coverage, monthly_total
 export distribution_to_nc, afai_to_distribution
 export plot
 export download_data, data_path, data_rm

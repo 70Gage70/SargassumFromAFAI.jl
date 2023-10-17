@@ -36,6 +36,15 @@ function download_data(year::Integer, month::Integer)
 
     RemoteFiles.download(RemoteFiles.Http(), file_symbol)
 
+    time_slices = length(ncread(path(file_symbol), "time"))
+    if time_slices < 4
+        @warn "
+            Dataset with year $(year), month $(month) is not complete. 
+            Expected 4 time slices but got $(time_slices) time slices.
+            The dataset was downloaded, but it won't work as expected without further processing. 
+            "
+    end
+
     return nothing
 end
 
@@ -69,6 +78,15 @@ function data_path(year::Integer, month::Integer)
         @info "File has not been downloaded."
 
         return nothing
+    end
+
+    time_slices = length(ncread(path(file_symbol), "time"))
+    if time_slices < 4
+        @warn "
+            Dataset with year $(year), month $(month) is not complete. 
+            Expected 4 time slices but got $(time_slices) time slices.
+            The dataset was downloaded, but it won't work as expected without further processing. 
+            "
     end
 
     return path(file_symbol)

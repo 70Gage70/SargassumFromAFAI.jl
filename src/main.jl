@@ -45,7 +45,7 @@ struct AFAIParameters{U<:Integer, T<:Real}
         threshold_median = 1.79e-4,
         afai_U0 = 4.41e-2,
         afai_L0 = -8.77e-4,
-        distribution_quant = 0.7)
+        distribution_quant = 0.85)
 
         return new{eltype(window_size_coast_mask), eltype(threshold_median)}(
             window_size_coast_mask,
@@ -344,8 +344,8 @@ end
     coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon::Integer = 30, step_lat::Integer = 40)
 
 Divide the computational domain into a regular grid and compute the mean value of the unmixed pixels in each bin. If `unmixed`
-is not provided, it is computed automatically. Return a tuple `(lon_bins_centers, lat_bins_centers, coverage_tot)` 
-where `coverage_tot` is the sum over time of each bin's coverage.
+is not provided, it is computed automatically. Return a tuple `(lon_bins_centers, lat_bins_centers, coverage_binned)` 
+where `coverage_binned`.
 
 The default grid uses a step size of `step_lon = 30` gridpoints in the longitudinal direction and `step_lat = 40` 
 gridpoints in the latitudinal direction.
@@ -374,9 +374,9 @@ function coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon
 
     lon_bins_centers = [mean(lon[lon_bin]) for lon_bin in lon_bins]
     lat_bins_centers = [mean(lat[lat_bin]) for lat_bin in lat_bins]
-    coverage_tot = sum(coverage_binned[:,:,t] for t = 1:size(coverage_binned, 3))
+    # coverage_tot = sum(coverage_binned[:,:,t] for t = 1:size(coverage_binned, 3))
 
-    return (lon_bins_centers, lat_bins_centers, coverage_tot)
+    return (lon_bins_centers, lat_bins_centers, coverage_binned)
 end
 
 """
@@ -389,18 +389,22 @@ A container for a gridded distribution of Sargassum.
 - `lon`: A vector of longitudes.
 - `lat`: A vector of latitudes.
 - `time`: A `DateTime` giving the month and year when the distribution was computed.
-- `sargassum`: A `Matrix` with dimensions `(lon x lat)` whose entries give the fractional coverage of Sargassum at each gridpoint. 
-Each value is expressed as a percentage of the total coverage in the entire grid each point represents, that is, `sargassum` is
-a probability distribution on the grid of longitudes and latitudes.
+- `sargassum`: An `Array` with dimensions `(lon x lat x 4)` whose entries give the fractional coverage of Sargassum at each gridpoint and 
+week of the month. Each value is expressed as a percentage of the total coverage in the entire grid in that month, that is, `sargassum` is
+a probability distribution on the grid of longitudes, latitudes and weeks. Or, more simply put, we have `sum(sargassum) == 1`.
 
 ### Constructing manually
 
-In general, `SargassumDistribution` should not be constructed directly. The total coverage should be computed using [`coverage`](coverage) to 
-obtain `lon`, `lat` and `coverage_tot`. Then, use
+Use `SargassumDistribution(;kwargs)` where each field has a named kwarg.
 
-`SargassumDistribution(afai, lon, lat, date, coverage_tot)`
+### Constructing from coverage
 
-where `date` is of the form `DateTime(year, month)`. The coverage is converted to a distribution by first discarding points below the 
+The total coverage should be computed using the function [`coverage`](@ref) to 
+obtain `lon`, `lat` and `coverage_binned`. Then, use
+
+`SargassumDistribution(afai, lon, lat, time, coverage_binned)`
+
+where `time` is of the form `DateTime(year, month)`. The coverage is converted to a distribution by first discarding points below the 
 quantile in `afai.params.distribution_quant`, taking the 1/6 root of each bin, and then normalizing.
 
 ### Constructing from a NetCDF file
@@ -411,37 +415,52 @@ A dictionary with entries of the form `(year, month) => distribution` is returne
 
 ### Plotting
 
-use `plot(dist::SargassumDistribution; limits = (-90, -38, -5, 22), resolution = (1920, 800), legend = true)`.
+To view each weekly distribution for a given month, use
+
+`plot(dist::SargassumDistribution; limits = (-90, -38, -5, 22), resolution = (1920, 1080), legend = true)`
+
+To view a specific week, use 
+
+`plot(dist::SargassumDistribution, week; limits = (-90, -38, -5, 22), resolution = (1920, 1080), legend = true)`
+
+where `week ∈ [1, 2, 3, 4]`.
 """
 struct SargassumDistribution{T<:Real, R<:Real}
     lon::Vector{T}
     lat::Vector{T}
     time::DateTime
-    sargassum::Matrix{R}
+    sargassum::Array{R, 3}
+
+    function SargassumDistribution(;
+        lon::Vector{T}, 
+        lat::Vector{T}, 
+        time::DateTime, 
+        sargassum::Array{R, 3}) where {T<:Real, R<:Real}
+
+        return new{eltype(lon), eltype(sargassum)}(lon, lat, time, sargassum)
+    end
 
     function SargassumDistribution(
         afai::AFAI,
         lon::Vector{T}, 
         lat::Vector{T}, 
-        date::DateTime, 
-        coverage_tot::Matrix{R}) where {T<:Real, R<:Real}
+        time::DateTime, 
+        coverage_binned::Array{R, 3}) where {T<:Real, R<:Real}
     
-        sargassum = zeros(eltype(coverage_tot), size(coverage_tot))
-        pos_coverage = filter(x -> x > 0.0, coverage_tot)
+        sargassum = zeros(eltype(coverage_binned), size(coverage_binned))
+
+        # find afai.params.distribution_quant quantile among bins with positive coverage
+        pos_coverage = filter(x -> x > 0.0, coverage_binned)
         thresh = length(pos_coverage) > 0 ? quantile(pos_coverage, afai.params.distribution_quant) : 0.0
+
+        # among bins with coverage at least as much as the threshold, compute the 1/6th root transformation
+        thresh_coverage = findall(x -> x >= thresh, coverage_binned)
+        sargassum[thresh_coverage] .= coverage_binned[thresh_coverage] .^ (1/3)
     
-        for i = 1:size(coverage_tot, 1)
-            for j = 1:size(coverage_tot, 2)
-                if coverage_tot[i, j] >= thresh 
-                    # coverage_tot[i, j] = log10(coverage_tot[i, j])
-                    sargassum[i, j] = coverage_tot[i, j]^(1/6)
-                end
-            end
-        end
-    
+        # normalize
         sargassum = sargassum / sum(sargassum)
     
-        return new{eltype(lon), eltype(sargassum)}(lon, lat, date, sargassum)
+        return new{eltype(lon), eltype(sargassum)}(lon, lat, time, sargassum)
     end
 
     function SargassumDistribution(infile::String)
@@ -457,11 +476,46 @@ struct SargassumDistribution{T<:Real, R<:Real}
 
         for i = 1:length(time)
             date = months2time(time[i])
-            return_dict[date] = new{eltype(lon), eltype(sarg)}(lon, lat, DateTime(date...), sarg[:,:,i])
+            return_dict[date] = new{eltype(lon), eltype(sarg)}(lon, lat, DateTime(date...), sarg[:,:,:,i])
         end
 
         return return_dict
     end
+end
+
+function Base.show(io::IO, x::SargassumDistribution)
+    print(io, "SargassumDistribution[")
+    print(io, "Lon ∈ ")
+    show(io, extrema(x.lon))
+    print(io, ", Lat ∈ ")
+    show(io, extrema(x.lat))
+    print(io, ", ")
+    print(io, monthname(x.time))
+    print(io, " ")
+    show(io, Year(x.time).value)
+    print(io, "]")
+end
+
+"""
+    monthly_total(sargassum_distribution::SargassumDistribution)
+
+Compute and return a [`SargassumDistribution`](@ref) whose `sargassum` field is 
+given by four copies of `sum(sargassum_distribution.sargassum[:,:,t])` and whose 
+other fields are identical to `sargassum_distribution`.
+"""
+function monthly_total(sargassum_distribution::SargassumDistribution)
+    tot = sum(sargassum_distribution.sargassum[:,:,t] for t = 1:4)
+    sarg = deepcopy(sargassum_distribution.sargassum)
+    for t = 1:4
+        sarg[:,:,t] = tot
+    end
+
+    return SargassumDistribution(
+        lon = sargassum_distribution.lon,
+        lat = sargassum_distribution.lat,
+        time = sargassum_distribution.time,
+        sargassum = sarg
+    )
 end
 
 """
@@ -490,16 +544,17 @@ function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outf
     # assumes that all distributions are on the same grid
     lon = distributions[1].lon
     lat = distributions[1].lat
+    week = [1, 2, 3, 4]
 
     sarg = zeros(eltype(distributions[1].sargassum), size(distributions[1].sargassum)..., length(times))
 
     for i = 1:length(distributions)
-        sarg[:,:,i] .= distributions[i].sargassum
+        sarg[:,:,:,i] .= distributions[i].sargassum
     end
 
     varatts = Dict(
         "longname" => "Sargassum density",
-        "units"    => "fraction")
+        "units"    => "monthly fraction")
     lonatts = Dict(
         "longname" => "Longitude",
         "units"    => "degrees east",
@@ -510,6 +565,11 @@ function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outf
         "units"    => "degrees north",
         "min"      => minimum(lat),
         "max"      => maximum(lat))
+    weekatts = Dict(
+        "longname" => "Week",
+        "units"    => "number",
+        "min"      => minimum(week),
+        "max"      => maximum(week))
     timeatts = Dict(
         "longname" => "Time",
         "units"    => "months since $(monthname(TREF)), $(year(TREF))",
@@ -523,6 +583,7 @@ function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outf
         "sargassum",
         "lon", lon, lonatts,
         "lat", lat, latatts, 
+        "week", week, weekatts,
         "time", times, timeatts, 
         atts = varatts,
         gatts = Dict(
@@ -546,7 +607,7 @@ end
 function plot(
     sargassum_distribution::SargassumDistribution;
     limits::NTuple{4, Int64} = (-90, -38, -5, 22),
-    resolution::NTuple{2, Int64} = (1920, 800),
+    resolution::NTuple{2, Int64} = (1920, 1080),
     legend::Bool = true)
 
     lon = sargassum_distribution.lon
@@ -559,20 +620,98 @@ function plot(
     fig = Figure(
         resolution = resolution,
         fontsize = 50,
+        figure_padding = (5, 5, 5, 5))
+
+    # Day 8
+    ax = geo_axis(fig[1, 1], title = L"\text{Days 1-8}", limits = limits)
+    sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,1]))
+    heatmap!(ax, lon, lat, sarg[:,:,1], 
+        colormap = Reverse(:RdYlGn),
+        colorrange = sarg_limits,
+        lowclip = :white)
+    land!(ax)
+    
+    # Day 15
+    ax = geo_axis(fig[1, 2], title = L"\text{Day 9-15}", limits = limits)
+    sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,2]))
+    heatmap!(ax, lon, lat, sarg[:,:,2], 
+        colormap = Reverse(:RdYlGn),
+        colorrange = sarg_limits,
+        lowclip = :white)
+    land!(ax)
+    
+    # Day 22
+    ax = geo_axis(fig[2, 1], title = L"\text{Day 16-22}", limits = limits)
+    sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,3]))
+    heatmap!(ax, lon, lat, sarg[:,:,3], 
+        colormap = Reverse(:RdYlGn),
+        colorrange = sarg_limits,
+        lowclip = :white)
+    land!(ax)
+    
+    # Day 29
+    ax = geo_axis(fig[2, 2], title = L"\text{Day 23-29}", limits = limits)
+    sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,4]))
+    heatmap!(ax, lon, lat, sarg[:,:,4], 
+        colormap = Reverse(:RdYlGn),
+        colorrange = sarg_limits,
+        lowclip = :white)
+    land!(ax)
+
+    if legend
+        sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
+        data_legend!(fig[:, 3], 
+            ticks = collect(range(sarg_limits[1], sarg_limits[2], length = 4))
+        )
+
+        colsize!(fig.layout, 3, Relative(2/15)) # relative width of data legend 
+    end
+
+    fig[0, :] = Label(fig, L"\text{%$(month_string) %$(year_string)}")
+
+    return fig
+end
+
+function plot(
+    sargassum_distribution::SargassumDistribution,
+    week::Integer;
+    title::Union{Nothing, AbstractString} = nothing,
+    limits::NTuple{4, Int64} = (-90, -38, -5, 22),
+    resolution::NTuple{2, Int64} = (1920, 800),
+    legend::Bool = true)
+
+    @assert week ∈ [1, 2, 3, 4]
+
+    lon = sargassum_distribution.lon
+    lat = sargassum_distribution.lat
+    sarg = sargassum_distribution.sargassum[:,:,week]
+
+    year_string = Year(sargassum_distribution.time).value
+    month_string = monthname(sargassum_distribution.time)
+
+    fig = Figure(
+        resolution = resolution,
+        fontsize = 50,
         figure_padding = (5, 100, 5, 5))
 
-    ax = geo_axis(fig[1, 1], title = L"\text{%$(month_string) %$(year_string)}", limits = limits)
+    if title === nothing
+        tit = L"\text{%$(month_string) %$(year_string)}, \, \mathrm{week} \, %$(week)"
+    else 
+        tit = title
+    end
+
+    ax = geo_axis(fig[1, 1], title = tit, limits = limits)
     
-    limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
+    sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
 
     heatmap!(ax, lon, lat, sarg, 
         colormap = Reverse(:RdYlGn),
-        colorrange = limits,
+        colorrange = sarg_limits,
         lowclip = :white)
 
     if legend
         data_legend!(fig[1, 2], 
-            ticks = collect(range(limits[1], limits[2], length = 4))
+            ticks = collect(range(sarg_limits[1], sarg_limits[2], length = 4))
         )
 
         colsize!(fig.layout, 2, Relative(1/15)) # relative width of data legend 
@@ -580,7 +719,7 @@ function plot(
 
     land!(ax)
     
-    fig
+    return fig
 end
 
 
@@ -618,7 +757,7 @@ function afai_to_distribution(
     
     unmixed = pixel_unmixing(afai, pixel_classification = classification);
     
-    lon_bins, lat_bins, coverage_tot = coverage(afai, unmixed = unmixed)
+    lon_bins, lat_bins, coverage_binned = coverage(afai, unmixed = unmixed)
     
-    return SargassumDistribution(afai, lon_bins, lat_bins, DateTime(year, month), coverage_tot)
+    return SargassumDistribution(afai, lon_bins, lat_bins, DateTime(year, month), coverage_binned)
 end
