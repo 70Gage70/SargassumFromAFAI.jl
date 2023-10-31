@@ -10,6 +10,8 @@ export EXAMPLE_DIST_APRIL_2018, EXAMPLE_DIST_MAY_2018
 export show
 
 include(joinpath(@__DIR__, "main.jl"))
+include(joinpath(@__DIR__, "plotting.jl"))
+include(joinpath(@__DIR__, "time.jl"))
 include(joinpath(@__DIR__, "..", "data", "remote-files.jl"))
 include(joinpath(@__DIR__, "..", "examples", "examples.jl"))
 
