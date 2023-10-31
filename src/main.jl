@@ -6,7 +6,7 @@ using Interpolations
 using ImageFiltering
 
 include("plotting.jl")
-include("utils.jl")
+include("time.jl")
 
 #####################################################################################################################
 #####################################################################################################################
@@ -424,6 +424,10 @@ To view a specific week, use
 `plot(dist::SargassumDistribution, week; limits = (-90, -38, -5, 22), resolution = (1920, 1080), legend = true)`
 
 where `week ∈ [1, 2, 3, 4]`.
+
+To add a plot of the distribution on a given week to a predefined axis use
+
+`plot!(axis::Makie.Axis, dist::SargassumDistribution, week)`.
 """
 struct SargassumDistribution{T<:Real, R<:Real}
     lon::Vector{T}
@@ -720,6 +724,25 @@ function plot(
     land!(ax)
     
     return fig
+end
+
+function plot!(
+    axis::Axis,
+    sargassum_distribution::SargassumDistribution,
+    week::Integer)
+
+    @assert week ∈ [1, 2, 3, 4]
+
+    lon = sargassum_distribution.lon
+    lat = sargassum_distribution.lat
+    sarg = sargassum_distribution.sargassum[:,:,week]
+    
+    sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
+
+    return heatmap!(axis, lon, lat, sarg, 
+        colormap = Reverse(:RdYlGn),
+        colorrange = sarg_limits,
+        lowclip = :white)
 end
 
 
