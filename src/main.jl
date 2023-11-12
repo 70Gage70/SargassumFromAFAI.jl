@@ -4,8 +4,7 @@ using Statistics
 using GeoDatasets
 using Interpolations
 using ImageFiltering
-
-# include(joinpath(@__DIR__, "time.jl"))
+using PolygonInbounds
 
 #####################################################################################################################
 #####################################################################################################################
@@ -288,16 +287,26 @@ function pixel_unmixing(afai::AFAI; pixel_classification::Union{Nothing, Vector{
 end
 
 """
-    coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon::Integer = 30, step_lat::Integer = 40)
+    coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon::Integer = 30, step_lat::Integer = 40, pacific_vertices::Matrix{<:Real} = VERTICES_PACIFIC_PANAMA)
 
-Divide the computational domain into a regular grid and compute the mean value of the unmixed pixels in each bin. If `unmixed`
-is not provided, it is computed automatically. Return a tuple `(lon_bins_centers, lat_bins_centers, coverage_binned)` 
-where `coverage_binned`.
+Divide the computational domain into a regular grid and compute the mean value of the unmixed pixels in each bin. Also, remove
+any Sargassum pixels that have crossed the Panama canal; by default this is done by removing Sargassum from  bins whose centers 
+are inside [`VERTICES_PACIFIC_PANAMA`](@ref). 
+
+If `unmixed` is not provided, it is computed automatically. 
 
 The default grid uses a step size of `step_lon = 30` gridpoints in the longitudinal direction and `step_lat = 40` 
 gridpoints in the latitudinal direction.
+
+Return a tuple `(lon_bins_centers, lat_bins_centers, coverage_binned)`  where `coverage_binned` is a matrix.
 """
-function coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon::Integer = 30, step_lat::Integer = 40)
+function coverage(
+    afai::AFAI; 
+    unmixed::Union{Nothing, Array} = nothing, 
+    step_lon::Integer = 30, 
+    step_lat::Integer = 40,
+    pacific_vertices::Matrix{<:Real} = VERTICES_PACIFIC_PANAMA)
+
     lon = afai.lon
     lat = afai.lat
 
@@ -307,6 +316,7 @@ function coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon
         unmixed_data = unmixed
     end
 
+    # main binning
     lon_bins = Iterators.partition(1:length(lon), step_lon) |> collect
     lat_bins = Iterators.partition(1:length(lat), step_lat) |> collect
     
@@ -321,7 +331,22 @@ function coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon
 
     lon_bins_centers = [mean(lon[lon_bin]) for lon_bin in lon_bins]
     lat_bins_centers = [mean(lat[lat_bin]) for lat_bin in lat_bins]
-    # coverage_tot = sum(coverage_binned[:,:,t] for t = 1:size(coverage_binned, 3))
+
+    # cleaning pacific
+    raw_points = Iterators.product(lon_bins_centers, lat_bins_centers) |> collect
+    inpoly_points = zeros(length(lon_bins_centers)*length(lat_bins_centers), 2)
+    for i = 1:size(inpoly_points, 1)
+        inpoly_points[i,:] .= raw_points[i]
+    end
+
+    inpoly_res = inpoly2(inpoly_points, pacific_vertices)
+    for i = 1:size(inpoly_res, 1)
+        if inpoly_res[i, 1]
+            for t = 1:4
+                coverage_binned[length(raw_points)*(t - 1) + i] = 0.0
+            end
+        end
+    end
 
     return (lon_bins_centers, lat_bins_centers, coverage_binned)
 end
@@ -404,7 +429,7 @@ struct SargassumDistribution{T<:Real, R<:Real}
         pos_coverage = filter(x -> x > 0.0, coverage_binned)
         thresh = length(pos_coverage) > 0 ? quantile(pos_coverage, afai.params.distribution_quant) : 0.0
 
-        # among bins with coverage at least as much as the threshold, compute the 1/6th root transformation
+        # among bins with coverage at least as much as the threshold, compute the 1/3th root transformation
         thresh_coverage = findall(x -> x >= thresh, coverage_binned)
         sargassum[thresh_coverage] .= coverage_binned[thresh_coverage] .^ (1/3)
     

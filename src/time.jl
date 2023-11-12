@@ -48,7 +48,7 @@ Calculate the date in `(year, month)` format of `months` months since [`TREF`](@
 
 ### Example
 
-time2months(219)
+months2time(219)
 (2018, 4)
 """
 function months2time(months::Integer)

@@ -50,7 +50,7 @@ bin_idx_lat = 30
 sargassum[bin_idx_lon, bin_idx_lat, 1] # 0.00039946
 ```
 
-In other words, the bin centered at `(-66.73, 17.69)` contains roughly `0.04%` of the total Sargassum in April.
+In other words, the bin centered at `(-66.73, 17.69)` contains, cumulatively over the first week of April, roughly `0.04%` of the total Sargassum in the whole o April.
 
 
 ## Quick Start
@@ -96,6 +96,8 @@ distribution_to_nc([dist_april_2018, dist_may_2018], "april_and_may_2018.nc")
 
 ## Advanced Usage
 
+### Changing Parameters
+
 The main computation contains a number of parameters that can be tweaked to change how the final distribution is computed. These parameters are stored in `AFAIParameters` which contains the following fields 
 
 - `window_size_coast_mask`: An `Integer` giving the distance, in gridpoints, such that all 
@@ -115,3 +117,18 @@ plot(new_dist)
 ```
 
 [!["May 2018 Sargassum Distribution (noisy)"](examples/may-2018-weeks-params.png)](https://70gage70.github.io/SargassumFromAFAI.jl/)
+
+### Custom Plotting
+
+You can add the heatmap of any week's distribution to a [Makie](https://docs.makie.org/stable/) axis, allowing the distributions ot be integrated with other visualizations.
+
+```julia
+using SargassumFromAFAI
+using Makie, CairoMakie
+
+fig = Figure()
+ax = Axis(fig[1, 1])
+SargassumFromAFAI.plot!(ax, dist_april_2018, 1) # first week of April
+```
+
+[!["April 2018 Sargassum Distribution (on blank axis)"](examples/april-2018-custom.png)](https://70gage70.github.io/SargassumFromAFAI.jl/)

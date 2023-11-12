@@ -2,10 +2,6 @@ using Makie, CairoMakie, GeoMakie
 using GeoMakie.GeoJSON
 using Latexify
 
-# include(joinpath(@__DIR__, "main.jl"))
-
-########################################################
-
 ########################################################
 # GENERAL 
 
