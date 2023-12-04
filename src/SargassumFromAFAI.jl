@@ -6,7 +6,7 @@ export distribution_to_nc, afai_to_distribution
 export plot, plot!
 export download_data, data_path, data_rm
 export TREF, time2months, months2time
-export EXAMPLE_DIST_APRIL_2018, EXAMPLE_DIST_MAY_2018, EXAMPLE_DIST_2018
+export EXAMPLE_DIST_APRIL_2018, EXAMPLE_DIST_MAY_2018, DIST_2018
 export VERTICES_PACIFIC_PANAMA
 export show
 
