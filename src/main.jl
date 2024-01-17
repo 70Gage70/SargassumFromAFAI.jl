@@ -141,7 +141,7 @@ function CoastMask(afai::AFAI)
     afai_data = afai.afai
     window_size = afai.params.window_size_coast_mask
 
-    lon_lsm, lat_lsm, lsm = GeoDatasets.landseamask(resolution = 'l', grid = 5)
+    lon_lsm, lat_lsm, lsm = GeoDatasets.landseamask(size = 'l', grid = 5)
     lsm[lsm .== 2] .= 1 # lake is not ocean, so it's land
     landseamask_itp = scale(Interpolations.interpolate(lsm, BSpline(Constant())), lon_lsm, lat_lsm)
     landseamask_gridded = [landseamask_itp(lon_i, lat_i) for lon_i in lon, lat_i in lat]
@@ -389,11 +389,11 @@ A dictionary with entries of the form `(year, month) => distribution` is returne
 
 To view each weekly distribution for a given month, use
 
-`plot(dist::SargassumDistribution; limits = (-90, -38, -5, 22), resolution = (1920, 1080), legend = true)`
+`plot(dist::SargassumDistribution; limits = (-90, -38, -5, 22), size = (1920, 1080), legend = true)`
 
 To view a specific week, use 
 
-`plot(dist::SargassumDistribution, week; limits = (-90, -38, -5, 22), resolution = (1920, 1080), legend = true)`
+`plot(dist::SargassumDistribution, week; limits = (-90, -38, -5, 22), size = (1920, 1080), legend = true)`
 
 where `week ∈ [1, 2, 3, 4]`.
 

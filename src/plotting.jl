@@ -7,7 +7,7 @@ using Latexify
 
 function default_fig()
     return Figure(
-    resolution = (1920, 1080), 
+    size = (1920, 1080), 
     fontsize = 50,
     figure_padding = (5, 100, 5, 5));
 end
@@ -171,7 +171,7 @@ function plot(
     month_string = monthname(sargassum_distribution.time)
 
     fig = Figure(
-        resolution = resolution,
+        size = resolution,
         fontsize = 50,
         figure_padding = (5, 5, 5, 5))
 
@@ -243,7 +243,7 @@ function plot(
     month_string = monthname(sargassum_distribution.time)
 
     fig = Figure(
-        resolution = resolution,
+        size = resolution,
         fontsize = 50,
         figure_padding = (5, 100, 5, 5))
 
