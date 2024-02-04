@@ -50,7 +50,7 @@ bin_idx_lat = 30
 sargassum[bin_idx_lon, bin_idx_lat, 1] # 0.00039946
 ```
 
-In other words, the bin centered at `(-66.73, 17.69)` contains, cumulatively over the first week of April, roughly `0.04%` of the total Sargassum in the whole o April.
+In other words, the bin centered at `(-66.73, 17.69)` contains, cumulatively over the first week of April, roughly `0.04%` of the total Sargassum in the whole of April.
 
 
 ## Quick Start
@@ -120,7 +120,7 @@ plot(new_dist)
 
 ### Custom Plotting
 
-You can add the heatmap of any week's distribution to a [Makie](https://docs.makie.org/stable/) axis, allowing the distributions ot be integrated with other visualizations.
+You can add the heatmap of any week's distribution to a [Makie](https://docs.makie.org/stable/) axis, allowing the distributions to be integrated with other visualizations.
 
 ```julia
 using SargassumFromAFAI
