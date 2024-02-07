@@ -1,7 +1,3 @@
-using Makie, CairoMakie, GeoMakie
-using GeoMakie.GeoJSON
-using Latexify
-
 ########################################################
 # GENERAL 
 
@@ -61,7 +57,7 @@ end
 function data_legend!(
     fig_pos::GridPosition,
     label::AbstractString = L"% \, \mathrm{Covr.}";
-    colormap::Union{Symbol, Reverse{Symbol}} = Reverse(:RdYlGn),
+    colormap = SHADDEN,
     label_fontsize::Real = 40,
     tick_fontsize::Real = 40,
     ticks::Vector{<:Real} = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
@@ -99,6 +95,8 @@ end
 # COAST MASK
 
 function plot(coast_mask::CoastMask)
+    lon = coast_mask.lon
+    lat = coast_mask.lat
     mask = coast_mask.mask
 
     fig = default_fig()
@@ -179,7 +177,7 @@ function plot(
     ax = geo_axis(fig[1, 1], title = L"\text{Days 1-8}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,1]))
     heatmap!(ax, lon, lat, sarg[:,:,1], 
-        colormap = Reverse(:RdYlGn),
+        colormap = SHADDEN,
         colorrange = sarg_limits,
         lowclip = :white)
     land!(ax)
@@ -188,7 +186,7 @@ function plot(
     ax = geo_axis(fig[1, 2], title = L"\text{Day 9-15}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,2]))
     heatmap!(ax, lon, lat, sarg[:,:,2], 
-        colormap = Reverse(:RdYlGn),
+        colormap = SHADDEN,
         colorrange = sarg_limits,
         lowclip = :white)
     land!(ax)
@@ -197,7 +195,7 @@ function plot(
     ax = geo_axis(fig[2, 1], title = L"\text{Day 16-22}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,3]))
     heatmap!(ax, lon, lat, sarg[:,:,3], 
-        colormap = Reverse(:RdYlGn),
+        colormap = SHADDEN,
         colorrange = sarg_limits,
         lowclip = :white)
     land!(ax)
@@ -206,7 +204,7 @@ function plot(
     ax = geo_axis(fig[2, 2], title = L"\text{Day 23-29}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,4]))
     heatmap!(ax, lon, lat, sarg[:,:,4], 
-        colormap = Reverse(:RdYlGn),
+        colormap = SHADDEN,
         colorrange = sarg_limits,
         lowclip = :white)
     land!(ax)
@@ -258,7 +256,7 @@ function plot(
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
 
     heatmap!(ax, lon, lat, sarg, 
-        colormap = Reverse(:RdYlGn),
+        colormap = SHADDEN,
         colorrange = sarg_limits,
         lowclip = :white)
 
@@ -289,7 +287,7 @@ function plot!(
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
 
     return heatmap!(axis, lon, lat, sarg, 
-        colormap = Reverse(:RdYlGn),
+        colormap = SHADDEN,
         colorrange = sarg_limits,
         lowclip = :white)
 end

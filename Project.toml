@@ -15,6 +15,7 @@ Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 NetCDF = "30363a11-5582-574a-97bb-aa9a979735b9"
 PolygonInbounds = "e4521ec6-8c1d-418e-9da2-b3bc4ae105d6"
 RemoteFiles = "cbe49d4c-5af1-5b60-bb70-0a60aa018e1b"
+SargassumColors = "d2143393-64d1-4702-ac44-3f87fb4b2e5f"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]

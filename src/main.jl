@@ -1,14 +1,3 @@
-using NetCDF
-using Dates
-using Statistics
-using GeoDatasets
-using Interpolations
-using ImageFiltering
-using PolygonInbounds
-
-#####################################################################################################################
-#####################################################################################################################
-
 """
     struct AFAIParameters{U, T}
 
@@ -23,6 +12,7 @@ A container for the parameters required to process the AFAI data.
 - `afai_U0`: A `Real` giving the global upper limit on `afai` values for Sargassum-containing pixels. Default: `4.41e-2`.
 - `afai_L0`: A `Real` giving the global lower limit on `afai` values for Sargassum-containing pixels. Default: `-8.77e-4`.
 - `distribution_quant`: A `Real` giving the quantile below which bins are discarded in the final distribution calculation. Default: `0.85`.
+- `root_transformation_index`: An `Integer` `n` such that each entry in the final [`SargassumDistribution`](@ref) is raised to the power `1/n`. Default `1`.
 
 ### Constructors 
 
@@ -35,6 +25,7 @@ struct AFAIParameters{U<:Integer, T<:Real}
     afai_U0::T 
     afai_L0::T
     distribution_quant::T
+    root_transformation_index::U
 
 
     function AFAIParameters(;
@@ -43,7 +34,8 @@ struct AFAIParameters{U<:Integer, T<:Real}
         threshold_median = 1.79e-4,
         afai_U0 = 4.41e-2,
         afai_L0 = -8.77e-4,
-        distribution_quant = 0.85)
+        distribution_quant = 0.85,
+        root_transformation_index = 1)
 
         return new{eltype(window_size_coast_mask), eltype(threshold_median)}(
             window_size_coast_mask,
@@ -51,12 +43,13 @@ struct AFAIParameters{U<:Integer, T<:Real}
             threshold_median,
             afai_U0,
             afai_L0,
-            distribution_quant)
+            distribution_quant,
+            root_transformation_index)
     end
 end
 
 """
-    mutable struct AFAI{U, R, T}
+    mutable struct AFAI{U, T, R}
 
 A container for the AFAI data.
 
@@ -65,7 +58,7 @@ A container for the AFAI data.
 - `lon`: A `Vector` of longitudes.
 - `lat`: A `Vector` of latitudes.
 - `time`: A `Vector` of `DateTime`s.
-- `afai`: An array of AFAI values of the form `afai[lon, lat, time]`.
+- `afai`: An `Array` of AFAI values of the form `afai[lon, lat, time]`.
 - `params`: A [`AFAIParameters`](@ref).
 
 ### Constructor
@@ -105,19 +98,31 @@ mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
 end
 
 """
-    struct CoastMask{T}
+    struct CoastMask{T, R}
 
 A container for a multiplicative mask defining the coastlines. 
 
-A `CoastMask` contains one field, `mask`, which should have the same size as `AFAI.afai`. 
+### Fields 
 
-The mask is multiplicative in the sense that its entries are `1.0` away from the coast 
+- `lon`: A `Vector` of longitudes.
+- `lat`: A `Vector` of latitudes.
+- `mask`: A `Matrix` of mask values of the form `mask[lon, lat]`.
+
+The `mask` is multiplicative in the sense that its entries are `1.0` away from the coast 
 and `NaN` on the coast such that multiplying `AFAI.afai[:,:,t]` by `CoastMask.mask` replaces
 the entries of `AFAI.afai[:,:,t]` on the coast by `NaN` and leaves other entries unchanged.
 
-### Constructors
+### Constructing from AFAI (recommended)
 
-Use `CoastMask(afai::AFAI)`.
+Use `CoastMask(afai::AFAI)`
+
+An interpolant whose value is 1.0 on land and 0.0 elsewhere is created using `GeoDatasets.landseamask`. Then, 
+a window of size `afai.params.window_size_coast_mask` is searched for each pixel; if land appears anywhere in the pixel,
+the coast mask receives a `NaN`.
+
+### Constructing manually
+
+Use `CoastMask(;kwargs...)` where each field has a named kwarg.
 
 ### Convenience Functions 
 
@@ -131,37 +136,48 @@ masked version in-place.
 
 Use plot(coast_mask::CoastMask).
 """
-struct CoastMask{T<:Real}
-    mask::Matrix{T}
-end
+struct CoastMask{T<:Real, R<:Real}
+    lon::Vector{T}
+    lat::Vector{T}
+    mask::Matrix{R}
 
-function CoastMask(afai::AFAI)
-    lon = afai.lon
-    lat = afai.lat
-    afai_data = afai.afai
-    window_size = afai.params.window_size_coast_mask
+    function CoastMask(;
+        lon::Vector{T},
+        lat::Vector{T},
+        mask::Matrix{R}) where {T<:Real, R<:Real}
 
-    lon_lsm, lat_lsm, lsm = GeoDatasets.landseamask(size = 'l', grid = 5)
-    lsm[lsm .== 2] .= 1 # lake is not ocean, so it's land
-    landseamask_itp = scale(Interpolations.interpolate(lsm, BSpline(Constant())), lon_lsm, lat_lsm)
-    landseamask_gridded = [landseamask_itp(lon_i, lat_i) for lon_i in lon, lat_i in lat]
-
-    landseamask_gridded_coast = zeros(eltype(afai_data), size(landseamask_gridded))
-    
-    for lon_i = 1:size(landseamask_gridded, 1)
-        for lat_i = 1:size(landseamask_gridded, 2)
-            lons = max(1, lon_i - round(Integer, window_size/2)):min(length(lon), lon_i + round(Integer, window_size/2))
-            lats = max(1, lat_i - round(Integer, window_size/2)):min(length(lat), lat_i + round(Integer, window_size/2))
-            if 1.0 in landseamask_gridded[lons, lats]
-                landseamask_gridded_coast[lon_i, lat_i] = NaN
-            else
-                landseamask_gridded_coast[lon_i, lat_i] = 1.0
-            end
-        end
+        return new{eltype(lon), eltype(mask)}(lon, lat, mask)
     end
 
-    return CoastMask(landseamask_gridded_coast)
+    function CoastMask(afai::AFAI)
+        lon = afai.lon
+        lat = afai.lat
+        afai_data = afai.afai
+        window_size = afai.params.window_size_coast_mask
+    
+        lon_lsm, lat_lsm, lsm = GeoDatasets.landseamask(resolution = 'l', grid = 5)
+        lsm[lsm .== 2] .= 1 # lake is not ocean, so it's land
+        landseamask_itp = scale(Interpolations.interpolate(lsm, BSpline(Constant())), lon_lsm, lat_lsm)
+        landseamask_gridded = [landseamask_itp(lon_i, lat_i) for lon_i in lon, lat_i in lat]
+    
+        landseamask_gridded_coast = zeros(eltype(afai_data), size(landseamask_gridded))
+        
+        for lon_i = 1:size(landseamask_gridded, 1)
+            for lat_i = 1:size(landseamask_gridded, 2)
+                lons = max(1, lon_i - round(Integer, window_size/2)):min(length(lon), lon_i + round(Integer, window_size/2))
+                lats = max(1, lat_i - round(Integer, window_size/2)):min(length(lat), lat_i + round(Integer, window_size/2))
+                if 1.0 in landseamask_gridded[lons, lats]
+                    landseamask_gridded_coast[lon_i, lat_i] = NaN
+                else
+                    landseamask_gridded_coast[lon_i, lat_i] = 1.0
+                end
+            end
+        end
+    
+        return new{eltype(lon), eltype(afai_data)}(lon, lat, landseamask_gridded_coast)
+    end
 end
+
 
 """
     coast_masked(afai::AFAI, coast_mask::CoastMask)
@@ -365,10 +381,6 @@ A container for a gridded distribution of Sargassum.
 week of the month. Each value is expressed as a percentage of the total coverage in the entire grid in that month, that is, `sargassum` is
 a probability distribution on the grid of longitudes, latitudes and weeks. Or, more simply put, we have `sum(sargassum) == 1`.
 
-### Constructing manually
-
-Use `SargassumDistribution(;kwargs)` where each field has a named kwarg.
-
 ### Constructing from coverage
 
 The total coverage should be computed using the function [`coverage`](@ref) to 
@@ -377,13 +389,17 @@ obtain `lon`, `lat` and `coverage_binned`. Then, use
 `SargassumDistribution(afai, lon, lat, time, coverage_binned)`
 
 where `time` is of the form `DateTime(year, month)`. The coverage is converted to a distribution by first discarding points below the 
-quantile in `afai.params.distribution_quant`, taking the 1/6 root of each bin, and then normalizing.
+quantile in `afai.params.distribution_quant`, taking the `afai.params.root_transformation_index` root of each bin, and then normalizing.
 
 ### Constructing from a NetCDF file
 
 Use `SargassumDistribution(infile::String)`.
 
 A dictionary with entries of the form `(year, month) => distribution` is returned.
+
+### Constructing manually
+
+Use `SargassumDistribution(;kwargs)` where each field has a named kwarg.
 
 ### Plotting
 
@@ -429,9 +445,9 @@ struct SargassumDistribution{T<:Real, R<:Real}
         pos_coverage = filter(x -> x > 0.0, coverage_binned)
         thresh = length(pos_coverage) > 0 ? quantile(pos_coverage, afai.params.distribution_quant) : 0.0
 
-        # among bins with coverage at least as much as the threshold, compute the 1/3th root transformation
+        # get bins with coverage at least as much as the threshold and apply the root transformation
         thresh_coverage = findall(x -> x >= thresh, coverage_binned)
-        sargassum[thresh_coverage] .= coverage_binned[thresh_coverage] .^ (1/3)
+        sargassum[thresh_coverage] .= coverage_binned[thresh_coverage] .^ (1/afai.params.root_transformation_index)
     
         # normalize
         sargassum = sargassum / sum(sargassum)
