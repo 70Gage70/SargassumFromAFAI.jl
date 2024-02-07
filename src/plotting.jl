@@ -1,6 +1,12 @@
 ########################################################
 # GENERAL 
 
+"""
+    default_fig()
+
+Create a `Makie.Figure` with a size of `(1920, 1080)`, a fontsize of `50` and a padding 
+of `(5, 100, 5, 5)`.
+"""
 function default_fig()
     return Figure(
     size = (1920, 1080), 
@@ -8,6 +14,23 @@ function default_fig()
     figure_padding = (5, 100, 5, 5));
 end
 
+"""
+    geo_axis(fig_pos; title, limits, xticks, yticks)
+
+Create a `Makie.Axis` suitable for plotting on an equirectangular projection.
+
+### Arguments
+
+- `fig_pos`: A `Makie.GridPosition` where the plot should go. For example if `fig` is a `Makie.Figure`, \
+then `fig_pos[1, 1]` puts the axis in the first row and first column of `fig`.
+
+### Optional Arguments 
+
+- `title`: An `AbstractString`. Default `L"\\mathrm{Title}"`, where `Makie.L"..."` creates a `LaTeXString`.
+- `limits`: `An NTuple{4, <:Real}` of the form `(xmin, xmax, ymin, ymax)`.
+- `xticks`: A list of x tick mark locations.
+- `yticks`: A list of y tick mark locations.
+"""
 function geo_axis(
     fig_pos::GridPosition;
     title::AbstractString = L"\mathrm{Title}",
@@ -45,6 +68,21 @@ function geo_axis(
     )
 end
 
+
+"""
+    land!(axis; landpath, color)
+
+Add a land polygon to `axis::Makie.Axis`. This will be placed on top of any graphics that 
+are already on the axis.
+
+### Optional Arguments
+
+- `landpath`: A `String` pointing to the location of the `.geojson` file containing the land features. By \
+default this is provided by a Natural Earth 50 m file \
+"https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne\\_50m\\_land.geojson" \
+which is included automatically. 
+- `color`: A `Makie.Colorant` which gives the color of the land. Default is grey via `RGBf(0.5,0.5,0.5)`.
+"""
 function land!(
     axis::Axis; 
     landpath::String = joinpath(@__DIR__, "..", "geojson", "ne_50m_land.geojson"), 
@@ -54,6 +92,20 @@ function land!(
     poly!(axis, landpoly, color = color)
 end
 
+"""
+    data_legend!(fig_pos, label; colormap, label_fontsize, tick_fontsize, ticks, barlength, barwidth)
+
+Add a `Makie.Colorbar` with label `label` to the `GridPosion` in `fig_pos.`
+
+### Optional Arguments
+
+- `colormap`: The colormap used in the colorbar. Default `SargassumColors.SHADDEN`.
+- `label_fontsize`: The font size of the label. Default 40.
+- `tick_fontsize`: The font size of the label ticks. Default 40.
+- `ticks`: A `Vector` of tick values. Default `[0.0, 0.2, 0.4, 0.6, 0.8, 1.0]`.
+- `barlength`: The length of the colorbar as a `Relative` size of the grid. Default `Relative(9/10).`
+- `barwidth`: The width of the colorbar as a `Relative` size of the grid. Default `Relative(3/10).`
+"""
 function data_legend!(
     fig_pos::GridPosition,
     label::AbstractString = L"% \, \mathrm{Covr.}";
@@ -94,6 +146,11 @@ end
 ########################################################
 # COAST MASK
 
+"""
+    plot(coast_mask)
+
+Plot the coastlines in `coast_mask`.
+"""
 function plot(coast_mask::CoastMask)
     lon = coast_mask.lon
     lat = coast_mask.lat
@@ -116,6 +173,15 @@ end
 ########################################################
 # AFAI
 
+"""
+    plot(afai; coast_mask)
+
+Plot `afai.afai` for each of the four weeks on one graph.
+
+### Optional Arguments
+
+- `coast_mask`: If provided, the [`coast_masked`](@ref) version of `afai.afai` is plotted. Default `nothing`.
+"""
 function plot(afai::AFAI; coast_mask::Union{Nothing, CoastMask} = nothing)
     lon = afai.lon
     lat = afai.lat
@@ -154,11 +220,21 @@ end
 ########################################################
 # SARGASSUM DISTRIBUTION
 
+"""
+    plot(sargassum_distribution; limits, size, legend)
 
+Plot `sargassum_distribution` for each of the four weeks in one graph.
+
+### Optional Arguments
+
+- `limits`: A `NTuple{4, Int64}` giving the limits of the graph in the form `(lon_min, lon_max, lat_min, lat_max)`. Default `(-90, -38, -5, 22)`.
+- `size`: A `NTuple{2, Int64}` giving the size of the figure. Default `(1920, 1080)`.
+- `legend`: A `Bool`, displays the legends if `true`. Default `true`.
+"""
 function plot(
     sargassum_distribution::SargassumDistribution;
     limits::NTuple{4, Int64} = (-90, -38, -5, 22),
-    resolution::NTuple{2, Int64} = (1920, 1080),
+    size::NTuple{2, Int64} = (1920, 1080),
     legend::Bool = true)
 
     lon = sargassum_distribution.lon
@@ -169,7 +245,7 @@ function plot(
     month_string = monthname(sargassum_distribution.time)
 
     fig = Figure(
-        size = resolution,
+        size = size,
         fontsize = 50,
         figure_padding = (5, 5, 5, 5))
 
@@ -223,12 +299,23 @@ function plot(
     return fig
 end
 
+"""
+    plot(sargassum_distribution, week; limits, size, legend)
+
+Plot `sargassum_distribution` for the week `week`.
+
+### Optional Arguments
+
+- `limits`: A `NTuple{4, Int64}` giving the limits of the graph in the form `(lon_min, lon_max, lat_min, lat_max)`. Default `(-90, -38, -5, 22)`.
+- `size`: A `NTuple{2, Int64}` giving the size of the figure. Default `(1920, 1080)`.
+- `legend`: A `Bool`, displays the legends if `true`. Default `true`.
+"""
 function plot(
     sargassum_distribution::SargassumDistribution,
     week::Integer;
     title::Union{Nothing, AbstractString} = nothing,
     limits::NTuple{4, Int64} = (-90, -38, -5, 22),
-    resolution::NTuple{2, Int64} = (1920, 800),
+    size::NTuple{2, Int64} = (1920, 800),
     legend::Bool = true)
 
     @assert week ∈ [1, 2, 3, 4]
@@ -241,7 +328,7 @@ function plot(
     month_string = monthname(sargassum_distribution.time)
 
     fig = Figure(
-        size = resolution,
+        size = size,
         fontsize = 50,
         figure_padding = (5, 100, 5, 5))
 
@@ -273,6 +360,11 @@ function plot(
     return fig
 end
 
+"""
+    plot!(axis. sargassum_distribution, week)
+
+Add a plot of `sargassum_distribution` for the week `week` to `Axis::Makie.Axis`.
+"""
 function plot!(
     axis::Axis,
     sargassum_distribution::SargassumDistribution,
