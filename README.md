@@ -111,7 +111,7 @@ The main computation contains a number of parameters that can be tweaked to chan
 For example, to create a distribution with more non-zero bins, we can lower `distribution_quant`. This will simultaneously have the effect of increasing the noise.
 
 ```julia
-new_params = AFAIParameters(distribution_quant = 0.7)
+new_params = AFAIParameters(distribution_quant = 0.5)
 new_dist = afai_to_distribution(path_may_2018, 2018, 5, params = new_params)
 plot(new_dist)
 ```
