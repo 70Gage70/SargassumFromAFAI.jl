@@ -99,7 +99,7 @@ Add a `Makie.Colorbar` with label `label` to the `GridPosion` in `fig_pos.`
 
 ### Optional Arguments
 
-- `colormap`: The colormap used in the colorbar. Default `SargassumColors.SHADDEN`.
+- `colormap`: The colormap used in the colorbar. Default `SargassumColors.EUREKA`.
 - `label_fontsize`: The font size of the label. Default 40.
 - `tick_fontsize`: The font size of the label ticks. Default 40.
 - `ticks`: A `Vector` of tick values. Default `[0.0, 0.2, 0.4, 0.6, 0.8, 1.0]`.
@@ -109,7 +109,7 @@ Add a `Makie.Colorbar` with label `label` to the `GridPosion` in `fig_pos.`
 function data_legend!(
     fig_pos::GridPosition,
     label::AbstractString = L"% \, \mathrm{Covr.}";
-    colormap = SHADDEN,
+    colormap = EUREKA,
     label_fontsize::Real = 40,
     tick_fontsize::Real = 40,
     ticks::Vector{<:Real} = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
@@ -253,7 +253,7 @@ function plot(
     ax = geo_axis(fig[1, 1], title = L"\text{Days 1-8}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,1]))
     heatmap!(ax, lon, lat, sarg[:,:,1], 
-        colormap = SHADDEN,
+        colormap = EUREKA,
         colorrange = sarg_limits,
         lowclip = :white)
     land!(ax)
@@ -262,7 +262,7 @@ function plot(
     ax = geo_axis(fig[1, 2], title = L"\text{Day 9-15}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,2]))
     heatmap!(ax, lon, lat, sarg[:,:,2], 
-        colormap = SHADDEN,
+        colormap = EUREKA,
         colorrange = sarg_limits,
         lowclip = :white)
     land!(ax)
@@ -271,7 +271,7 @@ function plot(
     ax = geo_axis(fig[2, 1], title = L"\text{Day 16-22}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,3]))
     heatmap!(ax, lon, lat, sarg[:,:,3], 
-        colormap = SHADDEN,
+        colormap = EUREKA,
         colorrange = sarg_limits,
         lowclip = :white)
     land!(ax)
@@ -280,7 +280,7 @@ function plot(
     ax = geo_axis(fig[2, 2], title = L"\text{Day 23-29}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,4]))
     heatmap!(ax, lon, lat, sarg[:,:,4], 
-        colormap = SHADDEN,
+        colormap = EUREKA,
         colorrange = sarg_limits,
         lowclip = :white)
     land!(ax)
@@ -343,7 +343,7 @@ function plot(
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
 
     heatmap!(ax, lon, lat, sarg, 
-        colormap = SHADDEN,
+        colormap = EUREKA,
         colorrange = sarg_limits,
         lowclip = :white)
 
@@ -379,7 +379,7 @@ function plot!(
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
 
     return heatmap!(axis, lon, lat, sarg, 
-        colormap = SHADDEN,
+        colormap = EUREKA,
         colorrange = sarg_limits,
         lowclip = :white)
 end
