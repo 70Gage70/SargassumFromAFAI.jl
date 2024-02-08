@@ -381,5 +381,6 @@ function plot!(
     return heatmap!(axis, lon, lat, sarg, 
         colormap = EUREKA,
         colorrange = sarg_limits,
+        colorscale = log10,
         lowclip = :white)
 end
