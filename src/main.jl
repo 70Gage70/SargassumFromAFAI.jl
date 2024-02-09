@@ -59,6 +59,8 @@ A container for the AFAI data.
 - `lat`: A `Vector` of latitudes.
 - `time`: A `Vector` of `DateTime`s.
 - `afai`: An `Array` of AFAI values of the form `afai[lon, lat, time]`.
+- `coast`: A `BitMatrix` of size `size(afai)[1:2]` such that `coast[i, j] = 1` when the point `(lon[i], lat[j])` is on a coastline.
+- `clouds`: A `BitArray` of size `size(afai)` such that `clouds[i, j, t] = 1` when there is a cloud at `(lon[i], lat[j])` and week `t`.
 - `params`: A [`AFAIParameters`](@ref).
 
 ### Constructor
@@ -68,6 +70,8 @@ Use `AFAI(filename::String, params::AFAIParameters)` where `filename` is a NetCD
 It is assumed that the file is obtained from the NOAA database:
 
 https://cwcgom.aoml.noaa.gov/erddap/griddap/noaa_aoml_atlantic_oceanwatch_AFAI_7D.html
+
+The fields `coast` and `clouds` are initialized with 0's by default. Use [`coast_and_clouds!`](@ref) to construct them fully.
 
 ### Plotting 
 
@@ -80,6 +84,8 @@ mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
     lat::Vector{T}
     time::Vector{DateTime}
     afai::Array{R, 3}
+    coast::BitMatrix
+    clouds::BitArray
     params::AFAIParameters{U, T}
 
     function AFAI(filename::String, params::AFAIParameters)
@@ -92,119 +98,88 @@ mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
         lon = ncread(filename, "longitude")
         lat = ncread(filename, "latitude")
         afai = ncread(filename, "AFAI")
+        coast = falses(size(afai)[1:2]...)
+        clouds = falses(size(afai)...)
     
-        return new{eltype(params.window_size_coast_mask), eltype(lon), eltype(afai)}(lon, lat, time, afai, params)
+        return new{eltype(params.window_size_coast_mask), eltype(lon), eltype(afai)}(lon, lat, time, afai, coast, clouds, params)
     end
 end
 
 """
-    struct CoastMask{T, R}
+    clean_pacific!(afai; vertices)
 
-A container for a multiplicative mask defining the coastlines. 
-
-### Fields 
-
-- `lon`: A `Vector` of longitudes.
-- `lat`: A `Vector` of latitudes.
-- `mask`: A `Matrix` of mask values of the form `mask[lon, lat]`.
-
-The `mask` is multiplicative in the sense that its entries are `1.0` away from the coast 
-and `NaN` on the coast such that multiplying `AFAI.afai[:,:,t]` by `CoastMask.mask` replaces
-the entries of `AFAI.afai[:,:,t]` on the coast by `NaN` and leaves other entries unchanged.
-
-### Constructing from AFAI (recommended)
-
-Use `CoastMask(afai::AFAI)`
-
-An interpolant whose value is 1.0 on land and 0.0 elsewhere is created using `GeoDatasets.landseamask`. Then, 
-a window of size `afai.params.window_size_coast_mask` is searched for each pixel; if land appears anywhere in the pixel,
-the coast mask receives a `NaN`.
-
-### Constructing manually
-
-Use `CoastMask(;kwargs...)` where each field has a named kwarg.
-
-### Convenience Functions 
-
-Use `coast_masked(afai::AFAI, coast_mask::CoastMask)` to create and return the coast masked
-version of `AFAI.afai`.
-
-Use `coast_masked!(afai::AFAI, coast_mask::CoastMask)` to update `AFAI.afai` to the coast 
-masked version in-place.
-
-### Plotting 
-
-Use plot(coast_mask::CoastMask).
+Remove any Sargassum pixels that have crossed the Panama canal from `afai.afai`; by default this is done by removing Sargassum from pixels whose centers 
+are inside [`VERTICES_PACIFIC_PANAMA`](@ref). 
 """
-struct CoastMask{T<:Real, R<:Real}
-    lon::Vector{T}
-    lat::Vector{T}
-    mask::Matrix{R}
+function clean_pacific!(afai::AFAI; vertices::Matrix{<:Real} = VERTICES_PACIFIC_PANAMA)
+    lon = afai.lon
+    lat = afai.lat
 
-    function CoastMask(;
-        lon::Vector{T},
-        lat::Vector{T},
-        mask::Matrix{R}) where {T<:Real, R<:Real}
-
-        return new{eltype(lon), eltype(mask)}(lon, lat, mask)
+    raw_points = Iterators.product(lon, lat) |> collect
+    inpoly_points = zeros(length(lon)*length(lat), 2)
+    for i = 1:size(inpoly_points, 1)
+        inpoly_points[i,:] .= raw_points[i]
     end
 
-    function CoastMask(afai::AFAI)
-        lon = afai.lon
-        lat = afai.lat
-        afai_data = afai.afai
-        window_size = afai.params.window_size_coast_mask
-    
-        lon_lsm, lat_lsm, lsm = GeoDatasets.landseamask(resolution = 'l', grid = 5)
-        lsm[lsm .== 2] .= 1 # lake is not ocean, so it's land
-        landseamask_itp = scale(Interpolations.interpolate(lsm, BSpline(Constant())), lon_lsm, lat_lsm)
-        landseamask_gridded = [landseamask_itp(lon_i, lat_i) for lon_i in lon, lat_i in lat]
-    
-        landseamask_gridded_coast = zeros(eltype(afai_data), size(landseamask_gridded))
-        
-        for lon_i = 1:size(landseamask_gridded, 1)
-            for lat_i = 1:size(landseamask_gridded, 2)
-                lons = max(1, lon_i - round(Integer, window_size/2)):min(length(lon), lon_i + round(Integer, window_size/2))
-                lats = max(1, lat_i - round(Integer, window_size/2)):min(length(lat), lat_i + round(Integer, window_size/2))
-                if 1.0 in landseamask_gridded[lons, lats]
-                    landseamask_gridded_coast[lon_i, lat_i] = NaN
-                else
-                    landseamask_gridded_coast[lon_i, lat_i] = 1.0
-                end
+    inpoly_res = inpoly2(inpoly_points, vertices)
+    for i = 1:size(inpoly_res, 1)
+        if inpoly_res[i, 1]
+            for t = 1:4
+                afai.afai[length(raw_points)*(t - 1) + i] = NaN
             end
         end
-    
-        return new{eltype(lon), eltype(afai_data)}(lon, lat, landseamask_gridded_coast)
-    end
-end
-
-
-"""
-    coast_masked(afai::AFAI, coast_mask::CoastMask)
-
-Return an array equal to `afai.afai` masked by `coast_mask.mask`.
-"""
-function coast_masked(afai::AFAI, coast_mask::CoastMask)
-    afai_unmasked = afai.afai
-    afai_masked = zeros(eltype(afai_unmasked), size(afai_unmasked))
-    mask = coast_mask.mask
-
-    for t_i = 1:size(afai_unmasked, 3)
-        afai_masked[:,:,t_i] = afai_unmasked[:,:,t_i] .* mask
     end
 
-    return afai_masked
-end
-
-"""
-    coast_masked!(afai::AFAI, coast_mask::CoastMask)
-
-Update `afai.afai` to be masked by `coast_mask.mask`.
-"""
-function coast_masked!(afai::AFAI, coast_mask::CoastMask)
-    afai.afai = coast_masked(afai, coast_mask)
     return nothing
 end
+
+"""
+    coast_and_clouds!(afai; apply_coast)
+
+
+"""
+function coast_and_clouds!(afai::AFAI; apply_coast::Bool = true)
+    lon = afai.lon
+    lat = afai.lat
+    afai_data = afai.afai
+    window_size = afai.params.window_size_coast_mask
+
+    # determine whether each point on the afai grid is on land or ocean
+    lon_lsm, lat_lsm, lsm = GeoDatasets.landseamask(resolution = 'l', grid = 5)
+    lsm[lsm .== 2] .= 1 # lake is not ocean, so it's land
+    landseamask_itp = scale(Interpolations.interpolate(lsm, BSpline(Constant())), lon_lsm, lat_lsm)
+    landseamask_gridded = [landseamask_itp(lon_i, lat_i) for lon_i in lon, lat_i in lat]
+
+    coast = falses(length(lon), length(lat))
+    clouds = falses(size(afai_data)...)
+    
+    for lon_i = 1:size(landseamask_gridded, 1), lat_i = 1:size(landseamask_gridded, 2)
+        lons = max(1, lon_i - round(Integer, window_size/2)):min(length(lon), lon_i + round(Integer, window_size/2))
+        lats = max(1, lat_i - round(Integer, window_size/2)):min(length(lat), lat_i + round(Integer, window_size/2))
+
+        if landseamask_gridded[lon_i, lat_i] == 0.0 # point itself is on the ocean
+            if 1.0 in landseamask_gridded[lons, lats] # point is within `window_size` of land and is therefore coastal
+                coast[lon_i, lat_i] = true
+            else
+                for t = 1:4 # for each week, check if there is a NaN here - if there is, it's a cloud
+                    if isnan(afai_data[lon_i, lat_i, t])
+                        clouds[lon_i, lat_i, t] = true
+                    end
+                end
+            end
+        end            
+    end
+
+    afai.coast = coast
+    afai.clouds = clouds
+
+    if apply_coast
+        afai.afai = afai_data .* [coast[i, j] ? NaN : 1 for i =1:length(lon), j = 1:length(lat), t = 1:4]
+    end
+
+    return nothing
+end
+
 
 """
     afai_median(afai::AFAI)
@@ -602,7 +577,7 @@ end
 Compute a [`SargassumDistribution`](@ref) from the raw data file `file`. The year and month of the calculation must be 
 provided manually. This is the highest level function. 
 
-One can pass `apply_median_filter = false` to skip the median filtering for testing purposes, in general this will likely give nonsense results 
+One can pass `apply_median_filter = false` to skip the median filtering for testing purposes, this may give nonsense results 
 unless `params` is also modified.
 """
 function afai_to_distribution(
@@ -623,7 +598,7 @@ function afai_to_distribution(
     if apply_median_filter
         afai_background = afai_median(afai)
     else
-        afai_background = afai.afai
+        afai_background = zeros(eltype(afai.afai), size(afai.afai))
     end
     
     classification = pixel_classification(afai, afai_median = afai_background);

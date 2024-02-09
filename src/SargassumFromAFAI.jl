@@ -34,10 +34,11 @@ include(joinpath(@__DIR__, "time.jl"))
 export TREF, time2months, months2time
 
 include(joinpath(@__DIR__, "..", "data", "earth-polygons.jl"))
-export VERTICES_PACIFIC_PANAMA
+export VERTICES_PACIFIC_PANAMA, VERTICES_NORTH_ATLANTIC
 
 include(joinpath(@__DIR__, "main.jl"))
-export AFAIParameters, AFAI, CoastMask, SargassumDistribution
+export AFAIParameters, AFAI, SargassumDistribution
+export clean_pacific!, coast_and_clouds!
 export coast_masked, coast_masked!, afai_median, pixel_classification, pixel_unmixing, coverage, monthly_total
 export distribution_to_nc, afai_to_distribution
 
