@@ -136,7 +136,12 @@ end
 """
     coast_and_clouds!(afai; apply_coast)
 
+Compute `afai.coast` and `afai.clouds` and update `afai` in place.
 
+### Optional Arguments
+
+- `apply_coast`: A `Bool` such that, if `true`, `afai.afai` is also updated to remove data 
+on the coast. Default `true`.
 """
 function coast_and_clouds!(afai::AFAI; apply_coast::Bool = true)
     lon = afai.lon
@@ -174,7 +179,7 @@ function coast_and_clouds!(afai::AFAI; apply_coast::Bool = true)
     afai.clouds = clouds
 
     if apply_coast
-        afai.afai = afai_data .* [coast[i, j] ? NaN : 1 for i =1:length(lon), j = 1:length(lat), t = 1:4]
+        afai.afai = afai_data .* [coast[i, j] ? NaN : 1 for i = 1:length(lon), j = 1:length(lat), t = 1:4]
     end
 
     return nothing
