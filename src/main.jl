@@ -75,7 +75,7 @@ The fields `coast` and `clouds` are initialized with 0's by default. Use [`coast
 
 ### Plotting 
 
-Use `plot(afai::AFAI; coast_mask::Union{Nothing, CoastMask} = nothing)`.
+Use `plot(afai::AFAI; coast_mask::Bool = false)`.
 
 The `afai` data are masked if `coast_mask` is provided, and plotted as-is otherwise.
 """
@@ -597,8 +597,7 @@ function afai_to_distribution(
 
     afai = AFAI(file, params)
     
-    coast_mask = CoastMask(afai)
-    coast_masked!(afai, coast_mask)
+    coast_and_clouds!(afai)
     
     if apply_median_filter
         afai_background = afai_median(afai)

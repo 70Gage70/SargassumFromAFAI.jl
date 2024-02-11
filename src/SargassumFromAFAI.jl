@@ -46,7 +46,7 @@ include(joinpath(@__DIR__, "..", "examples", "examples.jl"))
 export EXAMPLE_DIST_APRIL_2018, EXAMPLE_DIST_MAY_2018, DIST_2018
 
 include(joinpath(@__DIR__, "plotting.jl"))
-export plot, plot!
+export coast!, clouds!, plot, plot!
 
 export show # various Base extensions
 

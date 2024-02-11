@@ -144,74 +144,118 @@ function data_legend!(
 end
 
 ########################################################
-# COAST MASK
+# COAST
 
 """
-    plot(coast_mask)
+    coast!(ax, afai; color)
 
-Plot the coastlines in `coast_mask`.
+Add the a heatmap of `afai.coast` to `ax::Makie.Axis`.
+
+### Optional Arguments 
+
+- `color`: A `Colorant` for the heatmap. Default `colorant"red"`.
 """
-function plot(coast_mask::CoastMask)
-    lon = coast_mask.lon
-    lat = coast_mask.lat
-    mask = coast_mask.mask
+function coast!(
+    ax::Axis, 
+    afai::AFAI; 
+    color::Colorant = colorant"red")
 
-    fig = default_fig()
-
-    ax = geo_axis(fig[1, 1], title = L"\text{Coastlines}", limits = (-100, -38, 0, 35))
+    lon = afai.lon
+    lat = afai.lat
+    coast = afai.coast
     
-    heatmap!(ax, lon, lat, mask, 
+    heatmap!(ax, lon, lat, coast, 
         interpolate = false, 
-        nan_color = :black, 
+        # nan_color = :black, 
         colorrange = (0.3, 0.4), 
-        highclip = :gray)
-    land!(ax)
+        lowclip = RGBAf(0,0,0,0),
+        highclip = color
+        )
     
-   return fig
+   return nothing
+end
+
+########################################################
+# CLOUDS
+
+"""
+    clouds!(ax, afai, week; color)
+
+Add the a heatmap of `afai.clouds[:, :, week]` to `ax::Makie.Axis`.
+
+### Optional Arguments 
+
+- `color`: A `Colorant` for the heatmap. Default `colorant"black"`.
+"""
+function clouds!(
+    ax::Axis, 
+    afai::AFAI,
+    week::Integer; 
+    color::Colorant = colorant"black")
+
+    @assert week in [1, 2, 3, 4]
+
+    lon = afai.lon
+    lat = afai.lat
+    clouds = afai.clouds[:,:,week]
+    
+    heatmap!(ax, lon, lat, clouds, 
+        interpolate = false, 
+        # nan_color = :black, 
+        colorrange = (0.3, 0.4), 
+        lowclip = RGBAf(0,0,0,0),
+        highclip = color
+        )
+    
+   return nothing
 end
 
 ########################################################
 # AFAI
 
 """
-    plot(afai; coast_mask)
+    plot(afai; show_coast, show_clouds)
 
 Plot `afai.afai` for each of the four weeks on one graph.
 
 ### Optional Arguments
 
-- `coast_mask`: If provided, the [`coast_masked`](@ref) version of `afai.afai` is plotted. Default `nothing`.
+- `show_coast`: Highlight the coastlines in each graph via [`coast!`](@ref).
+- `show_clouds`: Highlight clouds/missing data in each graph via [`clouds!`](@ref).
 """
-function plot(afai::AFAI; coast_mask::Union{Nothing, CoastMask} = nothing)
+function plot(afai::AFAI; show_coast::Bool = false, show_clouds::Bool = false)
     lon = afai.lon
     lat = afai.lat
-
-    if coast_mask === nothing
-        afai_data = afai.afai
-    else
-        afai_data = coast_masked(afai, coast_mask)
-    end
+    afai_data = afai.afai
 
     fig = default_fig()
 
     # Day 8
     ax = geo_axis(fig[1, 1], title = L"\text{Days 1-8}", limits = (-100, -38, 0, 35))
     heatmap!(ax, lon, lat, afai_data[:,:,1])
+    show_coast ? coast!(ax, afai) : nothing
+    show_clouds ? clouds!(ax, afai, 1) : nothing
     land!(ax)
     
     # Day 15
     ax = geo_axis(fig[1, 2], title = L"\text{Day 9-15}", limits = (-100, -38, 0, 35))
     heatmap!(ax, lon, lat, afai_data[:,:,2])
+    show_coast ? coast!(ax, afai) : nothing
+    show_clouds ? clouds!(ax, afai, 2) : nothing
     land!(ax)
     
     # Day 22
     ax = geo_axis(fig[2, 1], title = L"\text{Day 16-22}", limits = (-100, -38, 0, 35))
     heatmap!(ax, lon, lat, afai_data[:,:,3])
+    show_coast ? coast!(ax, afai) : nothing
+    show_clouds ? clouds!(ax, afai, 3) : nothing
     land!(ax)
     
     # Day 29
     ax = geo_axis(fig[2, 2], title = L"\text{Day 23-29}", limits = (-100, -38, 0, 35))
     heatmap!(ax, lon, lat, afai_data[:,:,4])
+    show_coast ? coast!(ax, afai) : nothing
+    show_clouds ? clouds!(ax, afai, 4) : nothing
     land!(ax)
     
     fig
