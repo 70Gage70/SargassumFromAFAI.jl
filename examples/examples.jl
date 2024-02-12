@@ -17,7 +17,7 @@ const EXAMPLE_DIST_MAY_2018 = joinpath(@__DIR__, "dist-2018-5.nc")
 """
     const DIST_2018
 
-The path to a NetCDF file giving the January-July 2018 
-Sargassum distributions computed using `SargassumFromAFAI.jl`
+A dictionary mapping `(year, month)` pairs to [`SargassumDistribution`](@ref)s for January-July 2018 
+computed using `SargassumFromAFAI.jl`
 """
-const DIST_2018 = joinpath(@__DIR__, "..", "data", "dist-2018.nc")
+const DIST_2018 = SargassumDistribution(joinpath(@__DIR__, "..", "data", "dist-2018.nc"))
