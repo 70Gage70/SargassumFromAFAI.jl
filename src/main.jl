@@ -11,8 +11,9 @@ A container for the parameters required to process the AFAI data.
 - `threshold_median`: A `Real` such that all median-filtered `afai` values below it are considered to not contain Sargassum. Default: `1.79e-4`.
 - `afai_U0`: A `Real` giving the global upper limit on `afai` values for Sargassum-containing pixels. Default: `4.41e-2`.
 - `afai_L0`: A `Real` giving the global lower limit on `afai` values for Sargassum-containing pixels. Default: `-8.77e-4`.
-- `distribution_quant`: A `Real` giving the quantile below which bins are discarded in the final distribution calculation. Default: `0.85`.
-- `root_transformation_index`: An `Integer` `n` such that each entry in the final [`SargassumDistribution`](@ref) is raised to the power `1/n`. Default `1`.
+- `lon_lat_bin_size_coverage`: A `Tuple{Integer, Integer}` of the form `(lon_bin_size, lat_bin_size)` where the final coverage distribution is 
+binned with `lon_bin_size` gridpoints horizontally and `lat_bin_size` gridpoints vertically. Default `(30, 40)`.
+- `distribution_quant`: A `Real` giving the quantile below which bins are discarded in the final coverage distribution calculation. Default: `0.85`.
 
 ### Constructors 
 
@@ -24,8 +25,8 @@ struct AFAIParameters{U<:Integer, T<:Real}
     threshold_median::T
     afai_U0::T 
     afai_L0::T
+    lon_lat_bin_size_coverage::Tuple{U, U}
     distribution_quant::T
-    root_transformation_index::U
 
 
     function AFAIParameters(;
@@ -34,8 +35,8 @@ struct AFAIParameters{U<:Integer, T<:Real}
         threshold_median = 1.79e-4,
         afai_U0 = 4.41e-2,
         afai_L0 = -8.77e-4,
-        distribution_quant = 0.85,
-        root_transformation_index = 1)
+        lon_lat_bin_size_coverage = (30, 40),
+        distribution_quant = 0.85)
 
         return new{eltype(window_size_coast_mask), eltype(threshold_median)}(
             window_size_coast_mask,
@@ -43,9 +44,21 @@ struct AFAIParameters{U<:Integer, T<:Real}
             threshold_median,
             afai_U0,
             afai_L0,
-            distribution_quant,
-            root_transformation_index)
+            lon_lat_bin_size_coverage,
+            distribution_quant)
     end
+end
+
+function Base.show(io::IO, x::AFAIParameters)
+    print(io, "AFAIParameters[")
+    println(io, "window_size_coast_mask = $(x.window_size_coast_mask)")
+    println(io, "window_size_median_filter = $(x.window_size_median_filter)")
+    println(io, "threshold_median = $(x.threshold_median)")
+    println(io, "afai_U0 = $(x.afai_U0)")
+    println(io, "afai_L0 = $(x.afai_L0)")
+    println(io, "lon_lat_bin_size_coverage = $(x.lon_lat_bin_size_coverage)")
+    println(io, "distribution_quant = $(x.distribution_quant)")
+    print(io, "]")
 end
 
 """
@@ -58,9 +71,10 @@ A container for the AFAI data.
 - `lon`: A `Vector` of longitudes.
 - `lat`: A `Vector` of latitudes.
 - `time`: A `Vector` of `DateTime`s.
-- `afai`: An `Array` of AFAI values of the form `afai[lon, lat, time]`.
+- `afai`: An `Array` of AFAI/Sargassum values of the form `afai[lon, lat, time]`.
 - `coast`: A `BitMatrix` of size `size(afai)[1:2]` such that `coast[i, j] = 1` when the point `(lon[i], lat[j])` is on a coastline.
 - `clouds`: A `BitArray` of size `size(afai)` such that `clouds[i, j, t] = 1` when there is a cloud at `(lon[i], lat[j])` and week `t`.
+- `classification`: A `BitArray` of size `size(afai)` such that `clouds[i, j, t] = 1` when there Sargassum at `(lon[i], lat[j])` and week `t`.
 - `params`: A [`AFAIParameters`](@ref).
 
 ### Constructor
@@ -71,13 +85,12 @@ It is assumed that the file is obtained from the NOAA database:
 
 https://cwcgom.aoml.noaa.gov/erddap/griddap/noaa_aoml_atlantic_oceanwatch_AFAI_7D.html
 
-The fields `coast` and `clouds` are initialized with 0's by default. Use [`coast_and_clouds!`](@ref) to construct them fully.
+The fields `coast`, `clouds` and `classification` are initialized with 0's by default. Use [`coast_and_clouds!`](@ref)
+and [`pixel_classify!`](@ref) to construct them fully.
 
 ### Plotting 
 
-Use `plot(afai::AFAI; coast_mask::Bool = false)`.
-
-The `afai` data are masked if `coast_mask` is provided, and plotted as-is otherwise.
+Use `plot(afai::AFAI; show_coast::Bool = false, show_clouds::Bool = false)`.
 """
 mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
     lon::Vector{T}
@@ -86,6 +99,7 @@ mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
     afai::Array{R, 3}
     coast::BitMatrix
     clouds::BitArray
+    classification::BitArray
     params::AFAIParameters{U, T}
 
     function AFAI(filename::String, params::AFAIParameters)
@@ -100,9 +114,24 @@ mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
         afai = ncread(filename, "AFAI")
         coast = falses(size(afai)[1:2]...)
         clouds = falses(size(afai)...)
+        classification = falses(size(afai)...)
     
-        return new{eltype(params.window_size_coast_mask), eltype(lon), eltype(afai)}(lon, lat, time, afai, coast, clouds, params)
+        return new{eltype(params.window_size_coast_mask), eltype(lon), eltype(afai)}(lon, lat, time, afai, coast, clouds, classification, params)
     end
+end
+
+function Base.show(io::IO, x::AFAI)
+    print(io, "AFAI[")
+    print(io, "$(size(x.afai)[1]*size(x.afai)[2]) pixels, ")
+    print(io, "Lon ∈ ")
+    show(io, extrema(x.lon))
+    print(io, ", Lat ∈ ")
+    show(io, extrema(x.lat))
+    print(io, ", ")
+    print(io, monthname(x.time[1]))
+    print(io, " ")
+    show(io, Year(x.time[1]).value)
+    print(io, "]")
 end
 
 """
@@ -187,16 +216,23 @@ end
 
 
 """
-    afai_median(afai::AFAI)
+    pixel_classify!(afai::AFAI; verbose::Bool = true)
 
-Return an `Array` of the same size and eltype of `afai.afai` such that the value at each gridpoint
-is the median of all `afai.afai` values in a window of size `afai.params.window_size_median_filter`
-centered on that gridpoint. `NaN`s are ignored when calculating the median. If every value in the window 
+Compute `afai.classification` and update `afai` in place.
+
+This is accomplished in two steps. First, an `Array` of the same size and eltype of `afai.afai` is computed 
+such that the value at each gridpoint is the median of all `afai.afai` values in a window of size \\
+`afai.params.window_size_median_filter` centered on that gridpoint. 
+`NaN`s are ignored when calculating the median. If every value in the window 
 is `NaN`, the value of `afai_median` is also `NaN`.
 
-This can be a lengthy computation.
+Then, the Sargassum-containing pixels are the entries of `afai.afai - afai_median` that are at least as large 
+as `afai.params.threshold_median`.
+
+Computing the median filter is parallelized but can take several minutes, 
+hence the status is printed for each week. This can be turned off using the optional argument `verbose`.
 """
-function afai_median(afai::AFAI)
+function pixel_classify!(afai::AFAI; verbose::Bool = true)
     afai_data = afai.afai
     window_size = afai.params.window_size_median_filter
     afai_median_data = zeros(eltype(afai_data), size(afai_data))
@@ -210,142 +246,54 @@ function afai_median(afai::AFAI)
         end
     end
 
-    for t_i = 1:size(afai_median_data, 3)
+    Threads.@threads for week = 1:4
+    # for week = 1:4
+        if verbose
+            @info "Compuing AFAI median, time slice $(week)/4"
+        end
 
-        @info "Compuing AFAI median, time slice $(t_i)/4"
-
-        afai_median_data[:, :, t_i] = mapwindow(_median, afai_data[:, :, t_i], (window_size, window_size))
+        afai_median_data[:, :, week] = mapwindow(_median, afai_data[:, :, week], (window_size, window_size))
     end
 
-    return afai_median_data
+    idx = findall(x -> x > afai.params.threshold_median, afai_data - afai_median_data)
+    afai.classification[idx] .= true
+
+    return nothing
 end
 
-"""
-    pixel_classification(afai::AFAI; afai_median::Union{Nothing, Array} = nothing)
-
-Return a `Vector{CartesianIndex{3}}` giving the Sargassum-containing pixels/gridpoints
-of `afai.afai`.
-
-This function looks for entries of `afai.afai - afai_median` that are at least as large 
-as `afai.params.threshold_median`.
-
-If `afai_median` is not provided, it is computed automatically.
-"""
-function pixel_classification(afai::AFAI; afai_median::Union{Nothing, Array} = nothing)
-    afai_data = afai.afai
-
-    if afai_median === nothing
-        afai_median_data = afai_median(afai)
-    else
-        @assert size(afai_data) == size(afai_median)
-        afai_median_data = afai_median
-    end
-
-    return findall(x -> x > afai.params.threshold_median, afai_data - afai_median_data)
-end
 
 """
-    pixel_unmixing(afai::AFAI; pixel_classification::Union{Nothing, Vector{<:CartesianIndex}} = nothing)
+    pixel_unmix!(afai)
 
-Return an `Array` of the same size and eltype of `afai.afai` such that the value at each gridpoint
+Update `afai.afai` in place such that the value at each gridpoint
 is the percentage coverage of Sargassum in that pixel. The coverage is only computed at the pixels 
-given by `pixel_classification`, and set to `0.0` elsewhere. 
+given by `afai.classification`, and set to `0.0` elsewhere. 
 
 The coverage is computed as a linear interpolation between global maximum and minimum `afai` values 
 provided by `afai.params.afai_U0` and `afai.params.afai_L0`.
-
-If `pixel_classification` is not provided, it is computed automatically.
 """
-function pixel_unmixing(afai::AFAI; pixel_classification::Union{Nothing, Vector{<:CartesianIndex}} = nothing)
-    afai_data = afai.afai
-
-    if pixel_classification === nothing
-        pixel_classification_data = pixel_classification(afai)
-    else
-        pixel_classification_data = pixel_classification
-    end
-
-    unmixed = zeros(eltype(afai_data), size(afai_data))
+function pixel_unmix!(afai::AFAI)
     afai_U0 = afai.params.afai_U0
     afai_L0 = afai.params.afai_L0
 
-    for pixel_index in pixel_classification_data
-        alpha = (afai_data[pixel_index] - afai_L0)/(afai_U0 - afai_L0)
-        if alpha > 1
-            alpha = 1.0f0
-        elseif alpha < 0
+    for pixel_index = 1:length(afai.classification)
+        if afai.classification[pixel_index]
+            alpha = (afai.afai[pixel_index] - afai_L0)/(afai_U0 - afai_L0)
+            if alpha > 1
+                alpha = 1.0f0
+            elseif alpha < 0
+                alpha = 0.0f0
+            end
+        else
             alpha = 0.0f0
         end
-        unmixed[pixel_index] = alpha
+
+        afai.afai[pixel_index] = alpha
     end
 
-    return unmixed
+    return nothing
 end
 
-"""
-    coverage(afai::AFAI; unmixed::Union{Nothing, Array} = nothing, step_lon::Integer = 30, step_lat::Integer = 40, pacific_vertices::Matrix{<:Real} = VERTICES_PACIFIC_PANAMA)
-
-Divide the computational domain into a regular grid and compute the mean value of the unmixed pixels in each bin. Also, remove
-any Sargassum pixels that have crossed the Panama canal; by default this is done by removing Sargassum from  bins whose centers 
-are inside [`VERTICES_PACIFIC_PANAMA`](@ref). 
-
-If `unmixed` is not provided, it is computed automatically. 
-
-The default grid uses a step size of `step_lon = 30` gridpoints in the longitudinal direction and `step_lat = 40` 
-gridpoints in the latitudinal direction.
-
-Return a tuple `(lon_bins_centers, lat_bins_centers, coverage_binned)`  where `coverage_binned` is a matrix.
-"""
-function coverage(
-    afai::AFAI; 
-    unmixed::Union{Nothing, Array} = nothing, 
-    step_lon::Integer = 30, 
-    step_lat::Integer = 40,
-    pacific_vertices::Matrix{<:Real} = VERTICES_PACIFIC_PANAMA)
-
-    lon = afai.lon
-    lat = afai.lat
-
-    if unmixed === nothing
-        unmixed_data = pixel_unmixing(afai)
-    else
-        unmixed_data = unmixed
-    end
-
-    # main binning
-    lon_bins = Iterators.partition(1:length(lon), step_lon) |> collect
-    lat_bins = Iterators.partition(1:length(lat), step_lat) |> collect
-    
-    coverage_binned = zeros(eltype(unmixed_data), length(lon_bins), length(lat_bins), size(unmixed_data, 3))
-    for t = 1:size(coverage_binned, 3)
-        for i = 1:length(lon_bins)
-            for j = 1:length(lat_bins)
-                coverage_binned[i, j, t] = mean(unmixed_data[lon_bins[i], lat_bins[j], t])
-            end
-        end
-    end
-
-    lon_bins_centers = [mean(lon[lon_bin]) for lon_bin in lon_bins]
-    lat_bins_centers = [mean(lat[lat_bin]) for lat_bin in lat_bins]
-
-    # cleaning pacific
-    raw_points = Iterators.product(lon_bins_centers, lat_bins_centers) |> collect
-    inpoly_points = zeros(length(lon_bins_centers)*length(lat_bins_centers), 2)
-    for i = 1:size(inpoly_points, 1)
-        inpoly_points[i,:] .= raw_points[i]
-    end
-
-    inpoly_res = inpoly2(inpoly_points, pacific_vertices)
-    for i = 1:size(inpoly_res, 1)
-        if inpoly_res[i, 1]
-            for t = 1:4
-                coverage_binned[length(raw_points)*(t - 1) + i] = 0.0
-            end
-        end
-    end
-
-    return (lon_bins_centers, lat_bins_centers, coverage_binned)
-end
 
 """
     struct SargassumDistribution{T, R}
@@ -357,19 +305,20 @@ A container for a gridded distribution of Sargassum.
 - `lon`: A vector of longitudes.
 - `lat`: A vector of latitudes.
 - `time`: A `DateTime` giving the month and year when the distribution was computed.
+- `coast`: A `BitMatrix` of size `size(sargassum)[1:2]` such that `coast[i, j] = 1` when the point `(lon[i], lat[j])` is on a coastline.
+- `clouds`: A `BitArray` of size `size(sargassum)` such that `clouds[i, j, t] = 1` when there is a cloud at `(lon[i], lat[j])` and week `t`.
 - `sargassum`: An `Array` with dimensions `(lon x lat x 4)` whose entries give the fractional coverage of Sargassum at each gridpoint and 
 week of the month. Each value is expressed as a percentage of the total coverage in the entire grid in that month, that is, `sargassum` is
 a probability distribution on the grid of longitudes, latitudes and weeks. Or, more simply put, we have `sum(sargassum) == 1`.
 
-### Constructing from coverage
+### Constructing from AFAI
 
-The total coverage should be computed using the function [`coverage`](@ref) to 
-obtain `lon`, `lat` and `coverage_binned`. Then, use
+Use `SargassumDistribution(afai::AFAI)`.
 
-`SargassumDistribution(afai, lon, lat, time, coverage_binned)`
+In general, `afai` should be processed with [`clean_pacific!`](@ref), [`coast_and_clouds!`](@ref), [`pixel_classify!`](@ref) and [`pixel_unmix!`](@ref).
 
-where `time` is of the form `DateTime(year, month)`. The coverage is converted to a distribution by first discarding points below the 
-quantile in `afai.params.distribution_quant`, taking the `afai.params.root_transformation_index` root of each bin, and then normalizing.
+The data in `afai` are binned according to the bin size defined by `afai.params.lon_lat_bin_size_coverage`. For the clouds
+and coast, a bin is `true` if its mean over all pixels is greater than 0.5.
 
 ### Constructing from a NetCDF file
 
@@ -401,38 +350,71 @@ struct SargassumDistribution{T<:Real, R<:Real}
     lon::Vector{T}
     lat::Vector{T}
     time::DateTime
+    coast::BitMatrix
+    clouds::BitArray
     sargassum::Array{R, 3}
 
     function SargassumDistribution(;
         lon::Vector{T}, 
         lat::Vector{T}, 
         time::DateTime, 
+        coast::BitMatrix,
+        clouds::BitArray,
         sargassum::Array{R, 3}) where {T<:Real, R<:Real}
+
+        @assert size(coast) == size(sargassum)[1:2] "`coast` must have the same lon-lat shape as `sargassum"
+        @assert size(clouds) == size(sargassum) "`clouds` must have the same shape as `sargassum"
 
         return new{eltype(lon), eltype(sargassum)}(lon, lat, time, sargassum)
     end
 
-    function SargassumDistribution(
-        afai::AFAI,
-        lon::Vector{T}, 
-        lat::Vector{T}, 
-        time::DateTime, 
-        coverage_binned::Array{R, 3}) where {T<:Real, R<:Real}
+    function SargassumDistribution(afai::AFAI)
+        lon = afai.lon
+        lat = afai.lat 
+
+        # constructing bins
+        step_lon = afai.params.lon_lat_bin_size_coverage[1]
+        step_lat = afai.params.lon_lat_bin_size_coverage[2]
+        lon_bins = Iterators.partition(1:length(lon), step_lon) |> collect
+        lat_bins = Iterators.partition(1:length(lat), step_lat) |> collect
+        
+        coast_binned = falses(length(lon_bins), length(lat_bins))
+        clouds_binned = falses(length(lon_bins), length(lat_bins), 4)
+        sargassum = zeros(eltype(afai.afai), length(lon_bins), length(lat_bins), 4)
+
+        # binning data
+        for i = 1:length(lon_bins), j = 1:length(lat_bins)
+            # coast_mean = mean(afai.coast[lon_bins[i], lat_bins[j]])
+            # coast_binned[i, j] = coast_mean > 0.5 ? true : false
+            coast_binned[i, j] = any(afai.coast[lon_bins[i], lat_bins[j]]) ? true : false
+
+            for week = 1:4
+                clouds_mean = mean(afai.clouds[lon_bins[i], lat_bins[j], week])
+                clouds_binned[i, j, week] = clouds_mean > 0.1 ? true : false
+
+                sargassum[i, j, week] = mean(afai.afai[lon_bins[i], lat_bins[j], week])
+            end
+        end
     
-        sargassum = zeros(eltype(coverage_binned), size(coverage_binned))
-
-        # find afai.params.distribution_quant quantile among bins with positive coverage
-        pos_coverage = filter(x -> x > 0.0, coverage_binned)
+        lon_bins = [mean(lon[lon_bin]) for lon_bin in lon_bins]
+        lat_bins = [mean(lat[lat_bin]) for lat_bin in lat_bins]
+    
+        # find afai.params.distribution_quant quantile among bins with positive sargassum
+        pos_coverage = filter(x -> x > 0.0, sargassum)
         thresh = length(pos_coverage) > 0 ? quantile(pos_coverage, afai.params.distribution_quant) : 0.0
-
-        # get bins with coverage at least as much as the threshold and apply the root transformation
-        thresh_coverage = findall(x -> x >= thresh, coverage_binned)
-        sargassum[thresh_coverage] .= coverage_binned[thresh_coverage] .^ (1/afai.params.root_transformation_index)
+    
+        # get bins with sargassum at least as much as the threshold and apply the root transformation
+        thresh_coverage = findall(x -> x < thresh, sargassum)
+        sargassum[thresh_coverage] .= 0
     
         # normalize
         sargassum = sargassum / sum(sargassum)
+
+        # the year and month of the distribution (technically gives the first day of the month)
+        # assumes that each of `afai.time` is the same year and month, which should be true if calculations based on standard data
+        time = DateTime(yearmonth(afai.time[1])...)
     
-        return new{eltype(lon), eltype(sargassum)}(lon, lat, time, sargassum)
+        return new{eltype(lon), eltype(sargassum)}(lon_bins, lat_bins, time, coast_binned, clouds_binned, sargassum)
     end
 
     function SargassumDistribution(infile::String)
@@ -442,13 +424,21 @@ struct SargassumDistribution{T<:Real, R<:Real}
         lon = ncread(infile, "lon")
         lat = ncread(infile, "lat")
         time = ncread(infile, "time")
+        coast = ncread(infile, "coast")
+        clouds = ncread(infile, "clouds")
         sarg = ncread(infile, "sargassum")
 
         return_dict = Dict{Tuple{Int64, Int64}, SargassumDistribution}()
 
         for i = 1:length(time)
             date = months2time(time[i])
-            return_dict[date] = new{eltype(lon), eltype(sarg)}(lon, lat, DateTime(date...), sarg[:,:,:,i])
+            return_dict[date] = new{eltype(lon), eltype(sarg)}(
+                lon, 
+                lat, 
+                DateTime(date...), 
+                BitMatrix(coast[:,:,i]), 
+                BitArray(clouds[:,:,:,i]), 
+                sarg[:,:,:,i])
         end
 
         return return_dict
@@ -466,28 +456,6 @@ function Base.show(io::IO, x::SargassumDistribution)
     print(io, " ")
     show(io, Year(x.time).value)
     print(io, "]")
-end
-
-"""
-    monthly_total(sargassum_distribution::SargassumDistribution)
-
-Compute and return a [`SargassumDistribution`](@ref) whose `sargassum` field is 
-given by four copies of `sum(sargassum_distribution.sargassum[:,:,t])` and whose 
-other fields are identical to `sargassum_distribution`.
-"""
-function monthly_total(sargassum_distribution::SargassumDistribution)
-    tot = sum(sargassum_distribution.sargassum[:,:,t] for t = 1:4)
-    sarg = deepcopy(sargassum_distribution.sargassum)
-    for t = 1:4
-        sarg[:,:,t] = tot
-    end
-
-    return SargassumDistribution(
-        lon = sargassum_distribution.lon,
-        lat = sargassum_distribution.lat,
-        time = sargassum_distribution.time,
-        sargassum = sarg
-    )
 end
 
 """
@@ -518,15 +486,19 @@ function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outf
     lat = distributions[1].lat
     week = [1, 2, 3, 4]
 
+    coast = zeros(Int8, size(distributions[1].coast)..., length(times))
+    clouds = zeros(Int8, size(distributions[1].clouds)..., length(times))
     sarg = zeros(eltype(distributions[1].sargassum), size(distributions[1].sargassum)..., length(times))
 
     for i = 1:length(distributions)
+        coast[:,:,i] .= distributions[i].coast
+        clouds[:,:,:,i] .= distributions[i].clouds
         sarg[:,:,:,i] .= distributions[i].sargassum
     end
 
-    varatts = Dict(
-        "longname" => "Sargassum density",
-        "units"    => "monthly fraction")
+    @info typeof(coast)
+
+    # attributes
     lonatts = Dict(
         "longname" => "Longitude",
         "units"    => "degrees east",
@@ -548,7 +520,20 @@ function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outf
         "example"  => "time = 219 is $(monthname(months2time(219)[2])), $(months2time(219)[1])",
         "min"      => minimum(times),
         "max"      => maximum(times))
+
+    coast_atts = Dict(
+        "longname" => "coast mask",
+        "units"    => "1 or 0")
+
+    clouds_atts = Dict(
+        "longname" => "clouds mask",
+        "units"    => "1 or 0")
+
+    sarg_atts = Dict(
+        "longname" => "Sargassum density",
+        "units"    => "monthly fraction")
     
+    # writing to file
     isfile(outfile) && rm(outfile)
 
     nccreate(outfile, 
@@ -557,7 +542,7 @@ function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outf
         "lat", lat, latatts, 
         "week", week, weekatts,
         "time", times, timeatts, 
-        atts = varatts,
+        atts = sarg_atts,
         gatts = Dict(
             "info" =>       "The data depend on and are generated by the 
                             dataset with ID `noaa_aoml_atlantic_oceanwatch_AFAI_7D` 
@@ -566,6 +551,25 @@ function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outf
             "github" =>     "https://github.com/70Gage70/SargassumFromAFAI.jl"))
 
     ncwrite(sarg, outfile, "sargassum")
+
+    nccreate(outfile, 
+        "coast",
+        "lon", lon, lonatts,
+        "lat", lat, latatts, 
+        "time", times, timeatts, 
+        atts = coast_atts)
+
+    ncwrite(coast, outfile, "coast")
+
+    nccreate(outfile, 
+        "clouds",
+        "lon", lon, lonatts,
+        "lat", lat, latatts, 
+        "week", week, weekatts,
+        "time", times, timeatts, 
+        atts = clouds_atts)
+
+    ncwrite(clouds, outfile, "clouds")
 
     @info "Sargassum distribution written to $(outfile)."
 
@@ -577,39 +581,17 @@ function distribution_to_nc(distribution::SargassumDistribution, outfile::String
 end
 
 """
-    afai_to_distribution(file::String, year::Integer, month::Integer; params::AFAIParameters = AFAIParameters(), apply_median_filter::Bool = false)
+    afai_to_distribution(file::String, params::AFAIParameters)
 
-Compute a [`SargassumDistribution`](@ref) from the raw data file `file`. The year and month of the calculation must be 
-provided manually. This is the highest level function. 
-
-One can pass `apply_median_filter = false` to skip the median filtering for testing purposes, this may give nonsense results 
-unless `params` is also modified.
+Compute a [`SargassumDistribution`](@ref) using the parameters `params` from the raw data file `file`. 
 """
-function afai_to_distribution(
-    file::String,
-    year::Integer,
-    month::Integer; 
-    params::AFAIParameters = AFAIParameters(),
-    apply_median_filter::Bool = true)
-
-    @assert year > 0
-    @assert 1 <= month <= 12
-
+function afai_to_distribution(file::String, params::AFAIParameters)
     afai = AFAI(file, params)
     
+    clean_pacific!(afai)
     coast_and_clouds!(afai)
+    pixel_classify!(afai)
+    pixel_unmix!(afai)
     
-    if apply_median_filter
-        afai_background = afai_median(afai)
-    else
-        afai_background = zeros(eltype(afai.afai), size(afai.afai))
-    end
-    
-    classification = pixel_classification(afai, afai_median = afai_background);
-    
-    unmixed = pixel_unmixing(afai, pixel_classification = classification);
-    
-    lon_bins, lat_bins, coverage_binned = coverage(afai, unmixed = unmixed)
-    
-    return SargassumDistribution(afai, lon_bins, lat_bins, DateTime(year, month), coverage_binned)
+    return SargassumDistribution(afai)
 end

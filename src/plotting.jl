@@ -147,9 +147,9 @@ end
 # COAST
 
 """
-    coast!(ax, afai; color)
+    coast!(ax, dist; color)
 
-Add the a heatmap of `afai.coast` to `ax::Makie.Axis`.
+Add a heatmap of `dist.coast` to `ax::Makie.Axis`, where dist can be [`AFAI`](@ref) or [`SargassumDistribution`](@ref).
 
 ### Optional Arguments 
 
@@ -157,12 +157,12 @@ Add the a heatmap of `afai.coast` to `ax::Makie.Axis`.
 """
 function coast!(
     ax::Axis, 
-    afai::AFAI; 
+    dist::Union{AFAI, SargassumDistribution}; 
     color::Colorant = colorant"red")
 
-    lon = afai.lon
-    lat = afai.lat
-    coast = afai.coast
+    lon = dist.lon
+    lat = dist.lat
+    coast = dist.coast
     
     heatmap!(ax, lon, lat, coast, 
         interpolate = false, 
@@ -179,9 +179,9 @@ end
 # CLOUDS
 
 """
-    clouds!(ax, afai, week; color)
+    clouds!(ax, dist, week; color)
 
-Add the a heatmap of `afai.clouds[:, :, week]` to `ax::Makie.Axis`.
+Add a heatmap of `dist.clouds[:, :, week]` to `ax::Makie.Axis`, where dist can be [`AFAI`](@ref) or [`SargassumDistribution`](@ref).
 
 ### Optional Arguments 
 
@@ -189,15 +189,15 @@ Add the a heatmap of `afai.clouds[:, :, week]` to `ax::Makie.Axis`.
 """
 function clouds!(
     ax::Axis, 
-    afai::AFAI,
+    dist::Union{AFAI, SargassumDistribution},
     week::Integer; 
     color::Colorant = colorant"black")
 
     @assert week in [1, 2, 3, 4]
 
-    lon = afai.lon
-    lat = afai.lat
-    clouds = afai.clouds[:,:,week]
+    lon = dist.lon
+    lat = dist.lat
+    clouds = dist.clouds[:,:,week]
     
     heatmap!(ax, lon, lat, clouds, 
         interpolate = false, 
@@ -265,18 +265,22 @@ end
 # SARGASSUM DISTRIBUTION
 
 """
-    plot(sargassum_distribution; limits, size, legend)
+    plot(sargassum_distribution; show_coast, show_clouds, limits, size, legend)
 
 Plot `sargassum_distribution` for each of the four weeks in one graph.
 
 ### Optional Arguments
 
+- `show_coast`: Highlight the coastlines in each graph via [`coast!`](@ref). Default `false`.
+- `show_clouds`: Highlight clouds/missing data in each graph via [`clouds!`](@ref). Default `false`.
 - `limits`: A `NTuple{4, Int64}` giving the limits of the graph in the form `(lon_min, lon_max, lat_min, lat_max)`. Default `(-90, -38, -5, 22)`.
 - `size`: A `NTuple{2, Int64}` giving the size of the figure. Default `(1920, 1080)`.
 - `legend`: A `Bool`, displays the legends if `true`. Default `true`.
 """
 function plot(
     sargassum_distribution::SargassumDistribution;
+    show_coast::Bool = false,
+    show_clouds::Bool = false,
     limits::NTuple{4, Int64} = (-90, -38, -5, 22),
     size::NTuple{2, Int64} = (1920, 1080),
     legend::Bool = true)
@@ -300,6 +304,8 @@ function plot(
         colormap = EUREKA,
         colorrange = sarg_limits,
         lowclip = :white)
+    show_coast ? coast!(ax, sargassum_distribution) : nothing
+    show_clouds ? clouds!(ax, sargassum_distribution, 1) : nothing
     land!(ax)
     
     # Day 15
@@ -309,6 +315,8 @@ function plot(
         colormap = EUREKA,
         colorrange = sarg_limits,
         lowclip = :white)
+    show_coast ? coast!(ax, sargassum_distribution) : nothing
+    show_clouds ? clouds!(ax, sargassum_distribution, 1) : nothing
     land!(ax)
     
     # Day 22
@@ -318,6 +326,8 @@ function plot(
         colormap = EUREKA,
         colorrange = sarg_limits,
         lowclip = :white)
+    show_coast ? coast!(ax, sargassum_distribution) : nothing
+    show_clouds ? clouds!(ax, sargassum_distribution, 1) : nothing
     land!(ax)
     
     # Day 29
@@ -327,6 +337,8 @@ function plot(
         colormap = EUREKA,
         colorrange = sarg_limits,
         lowclip = :white)
+    show_coast ? coast!(ax, sargassum_distribution) : nothing
+    show_clouds ? clouds!(ax, sargassum_distribution, 1) : nothing
     land!(ax)
 
     if legend
@@ -344,12 +356,15 @@ function plot(
 end
 
 """
-    plot(sargassum_distribution, week; limits, size, legend)
+    plot(sargassum_distribution, week; show_coast, show_clouds, title, limits, size, legend)
 
 Plot `sargassum_distribution` for the week `week`.
 
 ### Optional Arguments
 
+- `show_coast`: Highlight the coastlines in each graph via [`coast!`](@ref). Default `false`.
+- `show_clouds`: Highlight clouds/missing data in each graph via [`clouds!`](@ref). Default `false`.
+- `title`: An `AbstractString` giving the title of the graph. Default `nothing`.
 - `limits`: A `NTuple{4, Int64}` giving the limits of the graph in the form `(lon_min, lon_max, lat_min, lat_max)`. Default `(-90, -38, -5, 22)`.
 - `size`: A `NTuple{2, Int64}` giving the size of the figure. Default `(1920, 1080)`.
 - `legend`: A `Bool`, displays the legends if `true`. Default `true`.
@@ -357,6 +372,8 @@ Plot `sargassum_distribution` for the week `week`.
 function plot(
     sargassum_distribution::SargassumDistribution,
     week::Integer;
+    show_coast::Bool = false,
+    show_clouds::Bool = false,
     title::Union{Nothing, AbstractString} = nothing,
     limits::NTuple{4, Int64} = (-90, -38, -5, 22),
     size::NTuple{2, Int64} = (1920, 800),
@@ -399,6 +416,9 @@ function plot(
         colsize!(fig.layout, 2, Relative(1/15)) # relative width of data legend 
     end
 
+    show_coast ? coast!(ax, sargassum_distribution) : nothing
+    show_clouds ? clouds!(ax, sargassum_distribution, 1) : nothing
+
     land!(ax)
     
     return fig
@@ -408,11 +428,16 @@ end
     plot!(axis. sargassum_distribution, week)
 
 Add a plot of `sargassum_distribution` for the week `week` to `Axis::Makie.Axis`.
+
+### Optional Arguments
+
+- `log_scale`: Plot on a `log10` scale. Default `false`.
 """
 function plot!(
     axis::Axis,
     sargassum_distribution::SargassumDistribution,
-    week::Integer)
+    week::Integer;
+    log_scale::Bool = false)
 
     @assert week ∈ [1, 2, 3, 4]
 
@@ -422,9 +447,11 @@ function plot!(
     
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
 
-    return heatmap!(axis, lon, lat, sarg, 
+    heatmap!(axis, lon, lat, sarg, 
         colormap = EUREKA,
         colorrange = sarg_limits,
-        colorscale = log10,
+        colorscale = log_scale ? log10 : x -> x,
         lowclip = :white)
+
+    return nothing
 end
