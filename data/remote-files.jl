@@ -8,7 +8,7 @@ Download the AFAI data for the given year and month from
 Can be applied as `download_data(year::Integer, month::Vector{<:Integer})` to download multiple months in a given 
 year at once.
 
-Four files are downloaded, one on the 8th, 15th, 22nd and 29th of each month, each of which are 7-day aggregates. 
+Four files are downloaded, one on the 7th, 14th, 21nd and 28th of each month, each of which are 7-day aggregates. 
 
 The files are named "afai-year-month.nc" and are stored in the `data` folder of this package. 
 
@@ -21,7 +21,7 @@ function download_data(year::Integer, month::Integer)
     month_string = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"][month]
 
     url_start = "https://cwcgom.aoml.noaa.gov/erddap/griddap/noaa_aoml_atlantic_oceanwatch_AFAI_7D.nc?AFAI"
-    url = url_start * "[($(year)-$(month_string)-08T00:00:00Z):7:($(year)-$(month_string)-29T00:00:00Z)][(0.0):1:(38.0)][(-98.0):1:(-38.0)]"
+    url = url_start * "[($(year)-$(month_string)-07T00:00:00Z):7:($(year)-$(month_string)-28T00:00:00Z)][(0.0):1:(38.0)][(-98.0):1:(-38.0)]"
 
     filename = "afai-$(year)-$(month_string).nc"
     file_symbol = Symbol(filename)
@@ -66,7 +66,7 @@ function data_path(year::Integer, month::Integer)
     month_string = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"][month]
 
     url_start = "https://cwcgom.aoml.noaa.gov/erddap/griddap/noaa_aoml_atlantic_oceanwatch_AFAI_7D.nc?AFAI"
-    url = url_start * "[($(year)-$(month_string)-08T00:00:00Z):7:($(year)-$(month_string)-29T00:00:00Z)][(0.0):1:(38.0)][(-98.0):1:(-38.0)]"
+    url = url_start * "[($(year)-$(month_string)-07T00:00:00Z):7:($(year)-$(month_string)-28T00:00:00Z)][(0.0):1:(38.0)][(-98.0):1:(-38.0)]"
 
     filename = "afai-$(year)-$(month_string).nc"
     file_symbol = Symbol(filename)
@@ -102,7 +102,7 @@ function data_rm(year::Integer, month::Integer)
     month_string = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"][month]
 
     url_start = "https://cwcgom.aoml.noaa.gov/erddap/griddap/noaa_aoml_atlantic_oceanwatch_AFAI_7D.nc?AFAI"
-    url = url_start * "[($(year)-$(month_string)-08T00:00:00Z):7:($(year)-$(month_string)-29T00:00:00Z)][(0.0):1:(38.0)][(-98.0):1:(-38.0)]"
+    url = url_start * "[($(year)-$(month_string)-07T00:00:00Z):7:($(year)-$(month_string)-28T00:00:00Z)][(0.0):1:(38.0)][(-98.0):1:(-38.0)]"
 
     filename = "afai-$(year)-$(month_string).nc"
     file_symbol = Symbol(filename)
