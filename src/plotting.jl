@@ -230,28 +230,28 @@ function plot(afai::AFAI; show_coast::Bool = false, show_clouds::Bool = false)
 
     fig = default_fig()
 
-    # Day 8
+    # Day 7
     ax = geo_axis(fig[1, 1], title = L"\text{Days 1-8}", limits = (-100, -38, 0, 35))
     heatmap!(ax, lon, lat, afai_data[:,:,1])
     show_coast ? coast!(ax, afai) : nothing
     show_clouds ? clouds!(ax, afai, 1) : nothing
     land!(ax)
     
-    # Day 15
+    # Day 14
     ax = geo_axis(fig[1, 2], title = L"\text{Day 9-15}", limits = (-100, -38, 0, 35))
     heatmap!(ax, lon, lat, afai_data[:,:,2])
     show_coast ? coast!(ax, afai) : nothing
     show_clouds ? clouds!(ax, afai, 2) : nothing
     land!(ax)
     
-    # Day 22
+    # Day 21
     ax = geo_axis(fig[2, 1], title = L"\text{Day 16-22}", limits = (-100, -38, 0, 35))
     heatmap!(ax, lon, lat, afai_data[:,:,3])
     show_coast ? coast!(ax, afai) : nothing
     show_clouds ? clouds!(ax, afai, 3) : nothing
     land!(ax)
     
-    # Day 29
+    # Day 28
     ax = geo_axis(fig[2, 2], title = L"\text{Day 23-29}", limits = (-100, -38, 0, 35))
     heatmap!(ax, lon, lat, afai_data[:,:,4])
     show_coast ? coast!(ax, afai) : nothing
@@ -297,7 +297,7 @@ function plot(
         fontsize = 50,
         figure_padding = (5, 5, 5, 5))
 
-    # Day 8
+    # Day 7
     ax = geo_axis(fig[1, 1], title = L"\text{Days 1-8}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,1]))
     heatmap!(ax, lon, lat, sarg[:,:,1], 
@@ -308,7 +308,7 @@ function plot(
     show_clouds ? clouds!(ax, sargassum_distribution, 1) : nothing
     land!(ax)
     
-    # Day 15
+    # Day 14
     ax = geo_axis(fig[1, 2], title = L"\text{Day 9-15}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,2]))
     heatmap!(ax, lon, lat, sarg[:,:,2], 
@@ -316,10 +316,10 @@ function plot(
         colorrange = sarg_limits,
         lowclip = :white)
     show_coast ? coast!(ax, sargassum_distribution) : nothing
-    show_clouds ? clouds!(ax, sargassum_distribution, 1) : nothing
+    show_clouds ? clouds!(ax, sargassum_distribution, 2) : nothing
     land!(ax)
     
-    # Day 22
+    # Day 21
     ax = geo_axis(fig[2, 1], title = L"\text{Day 16-22}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,3]))
     heatmap!(ax, lon, lat, sarg[:,:,3], 
@@ -327,10 +327,10 @@ function plot(
         colorrange = sarg_limits,
         lowclip = :white)
     show_coast ? coast!(ax, sargassum_distribution) : nothing
-    show_clouds ? clouds!(ax, sargassum_distribution, 1) : nothing
+    show_clouds ? clouds!(ax, sargassum_distribution, 3) : nothing
     land!(ax)
     
-    # Day 29
+    # Day 28
     ax = geo_axis(fig[2, 2], title = L"\text{Day 23-29}", limits = limits)
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg[:,:,4]))
     heatmap!(ax, lon, lat, sarg[:,:,4], 
@@ -338,7 +338,7 @@ function plot(
         colorrange = sarg_limits,
         lowclip = :white)
     show_coast ? coast!(ax, sargassum_distribution) : nothing
-    show_clouds ? clouds!(ax, sargassum_distribution, 1) : nothing
+    show_clouds ? clouds!(ax, sargassum_distribution, 4) : nothing
     land!(ax)
 
     if legend
@@ -417,7 +417,7 @@ function plot(
     end
 
     show_coast ? coast!(ax, sargassum_distribution) : nothing
-    show_clouds ? clouds!(ax, sargassum_distribution, 1) : nothing
+    show_clouds ? clouds!(ax, sargassum_distribution, week) : nothing
 
     land!(ax)
     
