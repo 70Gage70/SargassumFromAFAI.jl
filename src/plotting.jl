@@ -427,7 +427,7 @@ end
 """
     plot!(axis. sargassum_distribution, week)
 
-Add a plot of `sargassum_distribution` for the week `week` to `Axis::Makie.Axis`.
+Add a plot of `sargassum_distribution` for the week `week` to `Axis::Makie.Axis`. Returns a `Makie.heatmap!`.
 
 ### Optional Arguments
 
@@ -447,11 +447,9 @@ function plot!(
     
     sarg_limits = (minimum(filter(x -> x > 0, sarg)), maximum(sarg))
 
-    heatmap!(axis, lon, lat, sarg, 
-        colormap = EUREKA,
-        colorrange = sarg_limits,
-        colorscale = log_scale ? log10 : x -> x,
-        lowclip = :white)
-
-    return nothing
+    return heatmap!(axis, lon, lat, sarg, 
+    colormap = EUREKA,
+    colorrange = sarg_limits,
+    colorscale = log_scale ? log10 : x -> x,
+    lowclip = :white)
 end
