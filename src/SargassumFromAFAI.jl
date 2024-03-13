@@ -41,8 +41,8 @@ export AFAIParameters, AFAI, SargassumDistribution
 export clean_pacific!, coast_and_clouds!, pixel_classify!, pixel_unmix!
 export distribution_to_nc, afai_to_distribution
 
-include(joinpath(@__DIR__, "..", "examples", "examples.jl"))
-export EXAMPLE_DIST_APRIL_2018, EXAMPLE_DIST_MAY_2018, DIST_2018
+include(joinpath(@__DIR__, "..", "data", "precomputed.jl"))
+export DIST_1718
 
 include(joinpath(@__DIR__, "plotting.jl"))
 export coast!, clouds!, plot, plot!

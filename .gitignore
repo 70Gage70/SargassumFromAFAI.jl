@@ -154,7 +154,7 @@ Temporary Items
 *.nc
 !dist-2018-4.nc
 !dist-2018-5.nc    
-!dist-2018.nc
+!dists-2017-2018.nc
   
 
 # workspace
