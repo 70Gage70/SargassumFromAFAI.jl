@@ -104,7 +104,7 @@ mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
 
     function AFAI(filename::String, params::AFAIParameters)
         extension = filename[findlast(==('.'), filename)+1:end]
-        @assert extension == "nc" "Require a NetCDF (.nc) file."
+        @argcheck extension == "nc" "Require a NetCDF (.nc) file."
 
         tref = DateTime(1970, 1, 1, 0, 0, 0)
         time = tref + Second.(ncread(filename, "time"))
@@ -362,8 +362,8 @@ struct SargassumDistribution{T<:Real, R<:Real}
         clouds::BitArray,
         sargassum::Array{R, 3}) where {T<:Real, R<:Real}
 
-        @assert size(coast) == size(sargassum)[1:2] "`coast` must have the same lon-lat shape as `sargassum"
-        @assert size(clouds) == size(sargassum) "`clouds` must have the same shape as `sargassum"
+        @argcheck size(coast) == size(sargassum)[1:2] "`coast` must have the same lon-lat shape as `sargassum"
+        @argcheck size(clouds) == size(sargassum) "`clouds` must have the same shape as `sargassum"
 
         return new{eltype(lon), eltype(sargassum)}(lon, lat, time, sargassum)
     end
@@ -419,7 +419,7 @@ struct SargassumDistribution{T<:Real, R<:Real}
 
     function SargassumDistribution(infile::String)
         extension = infile[findlast(==('.'), infile)+1:end]
-        @assert extension == "nc" "Require a NetCDF (.nc) file."
+        @argcheck extension == "nc" "Require a NetCDF (.nc) file."
 
         lon = ncread(infile, "lon")
         lat = ncread(infile, "lat")
@@ -469,12 +469,12 @@ both have identical behavior.
 """
 function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outfile::String)
     extension = outfile[findlast(==('.'), outfile)+1:end]
-    @assert extension == "nc" "Output should be a NetCDF (.nc) file."
-    @assert length(distributions) > 0 "Need at least one distribution."
+    @argcheck extension == "nc" "Output should be a NetCDF (.nc) file."
+    @argcheck length(distributions) > 0 "Need at least one distribution."
 
     times = [time2months(distribution.time) for distribution in distributions]
 
-    @assert allunique(times) "All times must be different."
+    @argcheck allunique(times) "All times must be different."
 
     # ensure distributions are sorted by increasing time
     sp = sortperm(times)
@@ -495,8 +495,6 @@ function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outf
         clouds[:,:,:,i] .= distributions[i].clouds
         sarg[:,:,:,i] .= distributions[i].sargassum
     end
-
-    @info typeof(coast)
 
     # attributes
     lonatts = Dict(

@@ -193,7 +193,7 @@ function clouds!(
     week::Integer; 
     color::Colorant = colorant"black")
 
-    @assert week in [1, 2, 3, 4]
+    @argcheck week in [1, 2, 3, 4]
 
     lon = dist.lon
     lat = dist.lat
@@ -379,7 +379,7 @@ function plot(
     size::NTuple{2, Int64} = (1920, 800),
     legend::Bool = true)
 
-    @assert week ∈ [1, 2, 3, 4]
+    @argcheck week ∈ [1, 2, 3, 4]
 
     lon = sargassum_distribution.lon
     lat = sargassum_distribution.lat
@@ -439,7 +439,7 @@ function plot!(
     week::Integer;
     log_scale::Bool = false)
 
-    @assert week ∈ [1, 2, 3, 4]
+    @argcheck week ∈ [1, 2, 3, 4]
 
     lon = sargassum_distribution.lon
     lat = sargassum_distribution.lat

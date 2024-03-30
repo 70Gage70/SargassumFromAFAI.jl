@@ -15,8 +15,8 @@ The files are named "afai-year-month.nc" and are stored in the `data` folder of 
 Use the function `data_path(year, month)` to obtain the path to the file. And `data_rm(year, month)` to remove it.
 """
 function download_data(year::Integer, month::Integer)
-    @assert 2017 <= year <+ 2022 "These are the years with full datasets."
-    @assert 1 <= month <= 12 "Must be a valid month."
+    @argcheck 2017 <= year <+ 2022 "These are the years with full datasets."
+    @argcheck 1 <= month <= 12 "Must be a valid month."
 
     month_string = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"][month]
 
@@ -60,8 +60,8 @@ end
 Return the path to the raw data set for the given month and year, if it exists.
 """
 function data_path(year::Integer, month::Integer)
-    @assert 2017 <= year <+ 2022 "These are the years with full datasets."
-    @assert 1 <= month <= 12 "Must be a valid month."
+    @argcheck 2017 <= year <+ 2022 "These are the years with full datasets."
+    @argcheck 1 <= month <= 12 "Must be a valid month."
 
     month_string = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"][month]
 
@@ -96,8 +96,8 @@ end
 Remove the raw data set for the given month and year, if it exists.
 """
 function data_rm(year::Integer, month::Integer)
-    @assert 2017 <= year <+ 2022 "These are the years with full datasets."
-    @assert 1 <= month <= 12 "Must be a valid month."
+    @argcheck 2017 <= year <+ 2022 "These are the years with full datasets."
+    @argcheck 1 <= month <= 12 "Must be a valid month."
 
     month_string = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"][month]
 

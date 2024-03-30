@@ -1,7 +1,7 @@
 module SargassumFromAFAI
 
 # core functionality
-using Dates, Statistics
+using Dates, Statistics, ArgCheck
 
 # i/o
 using NetCDF
