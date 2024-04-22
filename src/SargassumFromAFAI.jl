@@ -18,9 +18,7 @@ using PolygonInbounds
 
 # plotting utilities
 using SargassumColors
-using Makie, CairoMakie, GeoMakie
-using GeoMakie.GeoJSON
-using Latexify
+using Makie
 
 # downloading and maintaining AFAI data
 using RemoteFiles
@@ -45,7 +43,7 @@ include(joinpath(@__DIR__, "..", "data", "precomputed.jl"))
 export DIST_1718
 
 include(joinpath(@__DIR__, "plotting.jl"))
-export coast!, clouds!, plot, plot!
+export coast!, clouds!, plot, sarg!
 
 export show # various Base extensions
 
