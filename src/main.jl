@@ -11,8 +11,8 @@ A container for the parameters required to process the AFAI data.
 - `threshold_median`: A `Real` such that all median-filtered `afai` values below it are considered to not contain Sargassum. Default: `1.79e-4`.
 - `afai_U0`: A `Real` giving the global upper limit on `afai` values for Sargassum-containing pixels. Default: `4.41e-2`.
 - `afai_L0`: A `Real` giving the global lower limit on `afai` values for Sargassum-containing pixels. Default: `-8.77e-4`.
-- `lon_lat_bin_size_coverage`: A `Tuple{Integer, Integer}` of the form `(lon_bin_size, lat_bin_size)` where the final coverage distribution is 
-binned with `lon_bin_size` gridpoints horizontally and `lat_bin_size` gridpoints vertically. Default `(30, 40)`.
+- `lon_lat_bins_coverage`: A `Tuple{Integer, Integer}` of the form `(lon_bins, lat_bins)` where the final coverage distribution is 
+binned with `lon_bins` horizontally and `lat_bins` gridpoints vertically. Default `(134, 64)`.
 - `distribution_quant`: A `Real` giving the quantile below which bins are discarded in the final coverage distribution calculation. Default: `0.85`.
 
 ### Constructors 
@@ -25,7 +25,7 @@ struct AFAIParameters{U<:Integer, T<:Real}
     threshold_median::T
     afai_U0::T 
     afai_L0::T
-    lon_lat_bin_size_coverage::Tuple{U, U}
+    lon_lat_bins_coverage::Tuple{U, U}
     distribution_quant::T
 
 
@@ -35,7 +35,7 @@ struct AFAIParameters{U<:Integer, T<:Real}
         threshold_median = 1.79e-4,
         afai_U0 = 4.41e-2,
         afai_L0 = -8.77e-4,
-        lon_lat_bin_size_coverage = (30, 40),
+        lon_lat_bins_coverage = (134, 64),
         distribution_quant = 0.85)
 
         return new{eltype(window_size_coast_mask), eltype(threshold_median)}(
@@ -44,7 +44,7 @@ struct AFAIParameters{U<:Integer, T<:Real}
             threshold_median,
             afai_U0,
             afai_L0,
-            lon_lat_bin_size_coverage,
+            lon_lat_bins_coverage,
             distribution_quant)
     end
 end
@@ -56,7 +56,7 @@ function Base.show(io::IO, x::AFAIParameters)
     println(io, "threshold_median = $(x.threshold_median)")
     println(io, "afai_U0 = $(x.afai_U0)")
     println(io, "afai_L0 = $(x.afai_L0)")
-    println(io, "lon_lat_bin_size_coverage = $(x.lon_lat_bin_size_coverage)")
+    println(io, "lon_lat_bins_coverage = $(x.lon_lat_bins_coverage)")
     println(io, "distribution_quant = $(x.distribution_quant)")
     print(io, "]")
 end
@@ -317,7 +317,7 @@ Use `SargassumDistribution(afai::AFAI)`.
 
 In general, `afai` should be processed with [`clean_pacific!`](@ref), [`coast_and_clouds!`](@ref), [`pixel_classify!`](@ref) and [`pixel_unmix!`](@ref).
 
-The data in `afai` are binned according to the bin size defined by `afai.params.lon_lat_bin_size_coverage`. For the clouds
+The data in `afai` are binned according to the bin size defined by `afai.params.lon_lat_bins_coverage`. For the clouds
 and coast, a bin is `true` if its mean over all pixels is greater than 0.5.
 
 ### Constructing from a NetCDF file
@@ -344,7 +344,7 @@ where `week ∈ [1, 2, 3, 4]`.
 
 To add a plot of the distribution on a given week to a predefined axis use
 
-`plot!(axis::Makie.Axis, dist::SargassumDistribution, week)`.
+`sarg!(axis::Makie.Axis, dist::SargassumDistribution, week)`.
 """
 struct SargassumDistribution{T<:Real, R<:Real}
     lon::Vector{T}
@@ -369,14 +369,19 @@ struct SargassumDistribution{T<:Real, R<:Real}
     end
 
     function SargassumDistribution(afai::AFAI)
-        lon = afai.lon
-        lat = afai.lat 
+        # uniformlize gridpoints
+        lon = range(afai.lon[1], afai.lon[end], length = length(afai.lon))
+        lat = range(afai.lat[1], afai.lat[end], length = length(afai.lat))
 
         # constructing bins
-        step_lon = afai.params.lon_lat_bin_size_coverage[1]
-        step_lat = afai.params.lon_lat_bin_size_coverage[2]
-        lon_bins = Iterators.partition(1:length(lon), step_lon) |> collect
-        lat_bins = Iterators.partition(1:length(lat), step_lat) |> collect
+        n_bins_lon = afai.params.lon_lat_bins_coverage[1]
+        n_bins_lat = afai.params.lon_lat_bins_coverage[2]
+        lons_fixed = range(lon[1] - step(lon)/2, lon[end] + step(lon)/2, length  = n_bins_lon + 1)
+        lon_bins = [ceil(Int64, (lon[i] - lons_fixed[1])/step(lons_fixed)) for i = 1:length(lon)]
+        lon_bins = [findall(x -> x == i, lon_bins) for i = 1:maximum(lon_bins)]
+        lats_fixed = range(lat[1] - step(lat)/2, lat[end] + step(lat)/2, length  = n_bins_lat + 1)
+        lat_bins = [ceil(Int64, (lat[i] - lats_fixed[1])/step(lats_fixed)) for i = 1:length(lat)]
+        lat_bins = [findall(x -> x == i, lat_bins) for i = 1:maximum(lat_bins)]      
         
         coast_binned = falses(length(lon_bins), length(lat_bins))
         clouds_binned = falses(length(lon_bins), length(lat_bins), 4)
@@ -384,8 +389,6 @@ struct SargassumDistribution{T<:Real, R<:Real}
 
         # binning data
         for i = 1:length(lon_bins), j = 1:length(lat_bins)
-            # coast_mean = mean(afai.coast[lon_bins[i], lat_bins[j]])
-            # coast_binned[i, j] = coast_mean > 0.5 ? true : false
             coast_binned[i, j] = any(afai.coast[lon_bins[i], lat_bins[j]]) ? true : false
 
             for week = 1:4
@@ -396,8 +399,8 @@ struct SargassumDistribution{T<:Real, R<:Real}
             end
         end
     
-        lon_bins = [mean(lon[lon_bin]) for lon_bin in lon_bins]
-        lat_bins = [mean(lat[lat_bin]) for lat_bin in lat_bins]
+        lon_bins = [(lons_fixed[i] + lons_fixed[i + 1])/2 for i = 1:length(lons_fixed)-1]
+        lat_bins = [(lats_fixed[i] + lats_fixed[i + 1])/2 for i = 1:length(lats_fixed)-1]
     
         # find afai.params.distribution_quant quantile among bins with positive sargassum
         pos_coverage = filter(x -> x > 0.0, sargassum)
