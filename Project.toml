@@ -1,7 +1,7 @@
 name = "SargassumFromAFAI"
 uuid = "db9ac4ac-0b65-4026-8dbd-2bb7cf4c299a"
 authors = ["Gage Bonner <gage.bonner@gmail.com>"]
-version = "0.3.0"
+version = "0.3.1"
 
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"

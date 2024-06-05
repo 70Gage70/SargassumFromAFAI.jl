@@ -328,7 +328,8 @@ A dictionary with entries of the form `(year, month) => distribution` is returne
 
 ### Constructing manually
 
-Use `SargassumDistribution(;kwargs)` where each field has a named kwarg.
+Use `SargassumDistribution(;kwargs)` where each field has a named kwarg. If `coast` and `clouds` are not provided, they are
+initialized using `falses`.
 
 ### Plotting
 
@@ -358,14 +359,14 @@ struct SargassumDistribution{T<:Real, R<:Real}
         lon::Vector{T}, 
         lat::Vector{T}, 
         time::DateTime, 
-        coast::BitMatrix,
-        clouds::BitArray,
-        sargassum::Array{R, 3}) where {T<:Real, R<:Real}
+        sargassum::Array{R, 3}
+        coast::BitMatrix = falses(size(sargassum)[1:2]...),
+        clouds::BitArray= falses(size(sargassum)...)) where {T<:Real, R<:Real}
 
         @argcheck size(coast) == size(sargassum)[1:2] "`coast` must have the same lon-lat shape as `sargassum"
         @argcheck size(clouds) == size(sargassum) "`clouds` must have the same shape as `sargassum"
 
-        return new{eltype(lon), eltype(sargassum)}(lon, lat, time, sargassum)
+        return new{eltype(lon), eltype(sargassum)}(lon, lat, time, coast, clouds, sargassum)
     end
 
     function SargassumDistribution(afai::AFAI)
