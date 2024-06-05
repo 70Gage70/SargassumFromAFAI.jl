@@ -360,11 +360,19 @@ struct SargassumDistribution{T<:Real, R<:Real}
         lat::Vector{T}, 
         time::DateTime, 
         sargassum::Array{R, 3}
-        coast::BitMatrix = falses(size(sargassum)[1:2]...),
-        clouds::BitArray= falses(size(sargassum)...)) where {T<:Real, R<:Real}
+        coast::Union{BitMatrix, Nothing} = nothing,
+        clouds::Union{BitArray, Nothing} = nothing) where {T<:Real, R<:Real}
 
         @argcheck size(coast) == size(sargassum)[1:2] "`coast` must have the same lon-lat shape as `sargassum"
         @argcheck size(clouds) == size(sargassum) "`clouds` must have the same shape as `sargassum"
+
+        if coast === nothing
+            coast = falses(size(sargassum)[1:2]...)
+        end
+
+        if clouds === nothing
+            clouds = falses(size(sargassum)...)
+        end
 
         return new{eltype(lon), eltype(sargassum)}(lon, lat, time, coast, clouds, sargassum)
     end
