@@ -366,13 +366,8 @@ struct SargassumDistribution{T<:Real, R<:Real}
         @argcheck size(coast) == size(sargassum)[1:2] "`coast` must have the same lon-lat shape as `sargassum"
         @argcheck size(clouds) == size(sargassum) "`clouds` must have the same shape as `sargassum"
 
-        if coast === nothing
-            coast = falses(size(sargassum)[1:2]...)
-        end
-
-        if clouds === nothing
-            clouds = falses(size(sargassum)...)
-        end
+        coast = isnothing(coast) ? falses(size(sargassum)[1:2]...) : coast
+        clouds = isnothing(clouds) ? falses(size(sargassum)...) : clouds
 
         return new{eltype(lon), eltype(sargassum)}(lon, lat, time, coast, clouds, sargassum)
     end
