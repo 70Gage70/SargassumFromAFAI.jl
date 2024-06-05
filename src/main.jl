@@ -359,7 +359,7 @@ struct SargassumDistribution{T<:Real, R<:Real}
         lon::Vector{T}, 
         lat::Vector{T}, 
         time::DateTime, 
-        sargassum::Array{R, 3}
+        sargassum::Array{R, 3},
         coast::Union{BitMatrix, Nothing} = nothing,
         clouds::Union{BitArray, Nothing} = nothing) where {T<:Real, R<:Real}
 
