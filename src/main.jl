@@ -602,7 +602,7 @@ function sargassum(
         end
     end
     
-    distribution_to_nc(dists, "test.nc")
+    distribution_to_nc(dists, outfile)
 end
 
 function sargassum(
@@ -612,4 +612,18 @@ function sargassum(
     params = AFAIParameters())
 
     return sargassum(year, [months], outfile, params = params)
+end
+
+"""
+    sargassum(year, outfile; params)
+
+Compute `sargassum(year, collect(1:12), outfile; params = params)`, i.e. the [`SargassumDistribution`](@ref) \
+for each month in `year`.
+"""
+function sargassum(
+    year::Integer, 
+    outfile::String; 
+    params = AFAIParameters())
+
+    return sargassum(year, collect(1:12), outfile, params = params)
 end
