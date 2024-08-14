@@ -38,6 +38,7 @@ include(joinpath(@__DIR__, "main.jl"))
 export AFAIParameters, AFAI, SargassumDistribution
 export clean_pacific!, coast_and_clouds!, pixel_classify!, pixel_unmix!
 export distribution_to_nc, afai_to_distribution
+export sargassum
 
 include(joinpath(@__DIR__, "..", "data", "precomputed.jl"))
 export DIST_1718
@@ -45,6 +46,7 @@ export DIST_1718
 include(joinpath(@__DIR__, "plotting.jl"))
 export coast!, clouds!, plot, sarg!
 
+include(joinpath(@__DIR__, "show.jl"))
 export show # various Base extensions
 
 end # module

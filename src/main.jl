@@ -5,19 +5,21 @@ A container for the parameters required to process the AFAI data.
 
 ### Fields 
 
-- `window_size_coast_mask`: An `Integer` giving the distance, in gridpoints, such that all 
-                            gridpoints within that distance of the coastline are masked (removed.) Default: `20`.
+- `window_size_coast_mask`: An `Integer` giving the distance, in gridpoints, such that all \
+gridpoints within that distance of the coastline are masked (removed.) Default: `20`.
 - `window_size_median_filter`: An `Integer` giving the size, in gridpoints of the median filter applied to the data. Default: `51`.
 - `threshold_median`: A `Real` such that all median-filtered `afai` values below it are considered to not contain Sargassum. Default: `1.79e-4`.
 - `afai_U0`: A `Real` giving the global upper limit on `afai` values for Sargassum-containing pixels. Default: `4.41e-2`.
 - `afai_L0`: A `Real` giving the global lower limit on `afai` values for Sargassum-containing pixels. Default: `-8.77e-4`.
-- `lon_lat_bins_coverage`: A `Tuple{Integer, Integer}` of the form `(lon_bins, lat_bins)` where the final coverage distribution is 
+- `lon_lat_bins_coverage`: A `Tuple{Integer, Integer}` of the form `(lon_bins, lat_bins)` where the final coverage distribution is \
 binned with `lon_bins` horizontally and `lat_bins` gridpoints vertically. Default `(134, 64)`.
 - `distribution_quant`: A `Real` giving the quantile below which bins are discarded in the final coverage distribution calculation. Default: `0.85`.
 
 ### Constructors 
 
-Use `AFAIParameters(; params...)` where each field has a named kwarg.
+    AFAIParameters(; params...)
+
+Each field has a named kwarg.
 """
 struct AFAIParameters{U<:Integer, T<:Real}
     window_size_coast_mask::U
@@ -49,18 +51,6 @@ struct AFAIParameters{U<:Integer, T<:Real}
     end
 end
 
-function Base.show(io::IO, x::AFAIParameters)
-    print(io, "AFAIParameters[")
-    println(io, "window_size_coast_mask = $(x.window_size_coast_mask)")
-    println(io, "window_size_median_filter = $(x.window_size_median_filter)")
-    println(io, "threshold_median = $(x.threshold_median)")
-    println(io, "afai_U0 = $(x.afai_U0)")
-    println(io, "afai_L0 = $(x.afai_L0)")
-    println(io, "lon_lat_bins_coverage = $(x.lon_lat_bins_coverage)")
-    println(io, "distribution_quant = $(x.distribution_quant)")
-    print(io, "]")
-end
-
 """
     mutable struct AFAI{U, T, R}
 
@@ -79,7 +69,9 @@ A container for the AFAI data.
 
 ### Constructor
 
-Use `AFAI(filename::String, params::AFAIParameters)` where `filename` is a NetCDF of the form `name.nc`.
+    AFAI(filename::String, params::AFAIParameters)
+    
+`filename` is a NetCDF of the form `name.nc`
 
 It is assumed that the file is obtained from the NOAA database:
 
@@ -90,7 +82,7 @@ and [`pixel_classify!`](@ref) to construct them fully.
 
 ### Plotting 
 
-Use `plot(afai::AFAI; show_coast::Bool = false, show_clouds::Bool = false)`.
+    plot(afai::AFAI; show_coast::Bool = false, show_clouds::Bool = false)
 """
 mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
     lon::Vector{T}
@@ -118,20 +110,6 @@ mutable struct AFAI{U<:Integer, T<:Real, R<:Real}
     
         return new{eltype(params.window_size_coast_mask), eltype(lon), eltype(afai)}(lon, lat, time, afai, coast, clouds, classification, params)
     end
-end
-
-function Base.show(io::IO, x::AFAI)
-    print(io, "AFAI[")
-    print(io, "$(size(x.afai)[1]*size(x.afai)[2]) pixels, ")
-    print(io, "Lon ∈ ")
-    show(io, extrema(x.lon))
-    print(io, ", Lat ∈ ")
-    show(io, extrema(x.lat))
-    print(io, ", ")
-    print(io, monthname(x.time[1]))
-    print(io, " ")
-    show(io, Year(x.time[1]).value)
-    print(io, "]")
 end
 
 """
@@ -169,7 +147,7 @@ Compute `afai.coast` and `afai.clouds` and update `afai` in place.
 
 ### Optional Arguments
 
-- `apply_coast`: A `Bool` such that, if `true`, `afai.afai` is also updated to remove data 
+- `apply_coast`: A `Bool` such that, if `true`, `afai.afai` is also updated to remove data \
 on the coast. Default `true`.
 """
 function coast_and_clouds!(afai::AFAI; apply_coast::Bool = true)
@@ -220,16 +198,16 @@ end
 
 Compute `afai.classification` and update `afai` in place.
 
-This is accomplished in two steps. First, an `Array` of the same size and eltype of `afai.afai` is computed 
-such that the value at each gridpoint is the median of all `afai.afai` values in a window of size \\
-`afai.params.window_size_median_filter` centered on that gridpoint. 
-`NaN`s are ignored when calculating the median. If every value in the window 
+This is accomplished in two steps. First, an `Array` of the same size and eltype of `afai.afai` is computed \
+such that the value at each gridpoint is the median of all `afai.afai` values in a window of size \
+`afai.params.window_size_median_filter` centered on that gridpoint. \
+`NaN`s are ignored when calculating the median. If every value in the window \
 is `NaN`, the value of `afai_median` is also `NaN`.
 
-Then, the Sargassum-containing pixels are the entries of `afai.afai - afai_median` that are at least as large 
+Then, the Sargassum-containing pixels are the entries of `afai.afai - afai_median` that are at least as large \
 as `afai.params.threshold_median`.
 
-Computing the median filter is parallelized but can take several minutes, 
+Computing the median filter is parallelized but can take several minutes, \
 hence the status is printed for each week. This can be turned off using the optional argument `verbose`.
 """
 function pixel_classify!(afai::AFAI; verbose::Bool = true)
@@ -265,11 +243,11 @@ end
 """
     pixel_unmix!(afai)
 
-Update `afai.afai` in place such that the value at each gridpoint
-is the percentage coverage of Sargassum in that pixel. The coverage is only computed at the pixels 
+Update `afai.afai` in place such that the value at each gridpoint \
+is the percentage coverage of Sargassum in that pixel. The coverage is only computed at the pixels \
 given by `afai.classification`, and set to `0.0` elsewhere. 
 
-The coverage is computed as a linear interpolation between global maximum and minimum `afai` values 
+The coverage is computed as a linear interpolation between global maximum and minimum `afai` values \
 provided by `afai.params.afai_U0` and `afai.params.afai_L0`.
 """
 function pixel_unmix!(afai::AFAI)
@@ -307,13 +285,13 @@ A container for a gridded distribution of Sargassum.
 - `time`: A `DateTime` giving the month and year when the distribution was computed.
 - `coast`: A `BitMatrix` of size `size(sargassum)[1:2]` such that `coast[i, j] = 1` when the point `(lon[i], lat[j])` is on a coastline.
 - `clouds`: A `BitArray` of size `size(sargassum)` such that `clouds[i, j, t] = 1` when there is a cloud at `(lon[i], lat[j])` and week `t`.
-- `sargassum`: An `Array` with dimensions `(lon x lat x 4)` whose entries give the fractional coverage of Sargassum at each gridpoint and 
-week of the month. Each value is expressed as a percentage of the total coverage in the entire grid in that month, that is, `sargassum` is
+- `sargassum`: An `Array` with dimensions `(lon x lat x 4)` whose entries give the fractional coverage of Sargassum at each gridpoint and \
+week of the month. Each value is expressed as a percentage of the total coverage in the entire grid in that month, that is, `sargassum` is \
 a probability distribution on the grid of longitudes, latitudes and weeks. Or, more simply put, we have `sum(sargassum) == 1`.
 
 ### Constructing from AFAI
 
-Use `SargassumDistribution(afai::AFAI)`.
+    SargassumDistribution(afai::AFAI)
 
 In general, `afai` should be processed with [`clean_pacific!`](@ref), [`coast_and_clouds!`](@ref), [`pixel_classify!`](@ref) and [`pixel_unmix!`](@ref).
 
@@ -322,30 +300,29 @@ and coast, a bin is `true` if its mean over all pixels is greater than 0.5.
 
 ### Constructing from a NetCDF file
 
-Use `SargassumDistribution(infile::String)`.
+    SargassumDistribution(infile::String)
 
 A dictionary with entries of the form `(year, month) => distribution` is returned.
 
 ### Constructing manually
 
-Use `SargassumDistribution(;kwargs)` where each field has a named kwarg. If `coast` and `clouds` are not provided, they are
-initialized using `falses`.
+    SargassumDistribution(; kwargs...)
+    
+Each field has a named kwarg. If `coast` and `clouds` are not provided, they are initialized using `falses`.
 
 ### Plotting
 
-To view each weekly distribution for a given month, use
+    plot(sargassum_distribution; show_coast, show_clouds, limits)
 
-`plot(dist::SargassumDistribution; limits = (-90, -38, -5, 22), size = (1920, 1080), legend = true)`
+View each weekly distribution for a given month.
 
-To view a specific week, use 
+    plot(sargassum_distribution, week; show_coast, show_clouds, limits)
 
-`plot(dist::SargassumDistribution, week; limits = (-90, -38, -5, 22), size = (1920, 1080), legend = true)`
+View a specific week, where `week ∈ [1, 2, 3, 4]`. 
 
-where `week ∈ [1, 2, 3, 4]`.
+    sarg!(axis::Makie.Axis, sargassum_distribution, week; log_scale, args...)
 
-To add a plot of the distribution on a given week to a predefined axis use
-
-`sarg!(axis::Makie.Axis, dist::SargassumDistribution, week)`.
+Add a plot of the distribution on a given week to a predefined axis.
 """
 struct SargassumDistribution{T<:Real, R<:Real}
     lon::Vector{T}
@@ -452,27 +429,15 @@ struct SargassumDistribution{T<:Real, R<:Real}
     end
 end
 
-function Base.show(io::IO, x::SargassumDistribution)
-    print(io, "SargassumDistribution[")
-    print(io, "Lon ∈ ")
-    show(io, extrema(x.lon))
-    print(io, ", Lat ∈ ")
-    show(io, extrema(x.lat))
-    print(io, ", ")
-    print(io, monthname(x.time))
-    print(io, " ")
-    show(io, Year(x.time).value)
-    print(io, "]")
-end
-
 """
     distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outfile::String)
 
-Write the vector of `SargassumDistribution`s in `distributions` to the NetCDF file named in `outfile`. That is,
+Write the vector of `SargassumDistribution`s in `distributions` to the NetCDF file named in `outfile`. That is, \
 `outfile` should be of the form `name.nc`.
 
-If writing a single distribution is desired, then `distribution_to_nc([dist], outfile)` or `distribution_to_nc(dist, outfile)`
-both have identical behavior.
+    distribution_to_nc(distribution::SargassumDistribution, outfile::String)
+
+    Write a signle distribution as above.
 """
 function distribution_to_nc(distributions::Vector{<:SargassumDistribution}, outfile::String)
     extension = outfile[findlast(==('.'), outfile)+1:end]
@@ -599,4 +564,52 @@ function afai_to_distribution(file::String, params::AFAIParameters)
     pixel_unmix!(afai)
     
     return SargassumDistribution(afai)
+end
+
+"""
+    sargassum(year, months, outfile; params)
+
+Write the [`SargassumDistribution`](@ref) at year `year` and for each month in `months` to the NetCDF file `outfile`.
+
+`months` can be an integer or a vector of integers.
+
+This is the highest level function available and attempts to download the data automatically if it hasn't already been \
+downloaded and run the full calculation. 
+
+### Optional Arguments
+
+- `params`: The [`AFAIParameters`](@ref) to use for each calculation.
+"""
+function sargassum(
+    year::Integer, 
+    months::Vector{<:Integer}, 
+    outfile::String; 
+    params = AFAIParameters())
+
+    extension = outfile[findlast(==('.'), outfile)+1:end]
+    @argcheck extension == "nc" "Output should be a NetCDF (.nc) file."
+    @argcheck !isfile(outfile) "The output file already exists."
+
+    dists = SargassumDistribution[]
+    
+    for month in months
+        try
+            download_data(year, month)
+            path = data_path(year, month)
+            push!(dists, afai_to_distribution(path, params))
+        catch
+            @warn "Problem with month $(month). This probably means that the raw dataset is incomplete or not available at this time."
+        end
+    end
+    
+    distribution_to_nc(dists, "test.nc")
+end
+
+function sargassum(
+    year::Integer, 
+    months::Integer, 
+    outfile::String; 
+    params = AFAIParameters())
+
+    return sargassum(year, [months], outfile, params = params)
 end

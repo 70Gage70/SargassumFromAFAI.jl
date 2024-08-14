@@ -5,8 +5,7 @@ Download the AFAI data for the given year and month from
 
 `https://cwcgom.aoml.noaa.gov/erddap/griddap/noaa_aoml_atlantic_oceanwatch_AFAI_7D.html`
 
-Can be applied as `download_data(year::Integer, month::Vector{<:Integer})` to download multiple months in a given 
-year at once.
+Can be applied as `download_data(year::Integer, month::Vector{<:Integer})` to download multiple months in a given year at once.
 
 Four files are downloaded, one on the 7th, 14th, 21nd and 28th of each month, each of which are 7-day aggregates. 
 
@@ -91,7 +90,7 @@ function data_path(year::Integer, month::Integer)
 end
 
 """
-    data_path(year::Integer, month::Integer)
+    data_rm(year::Integer, month::Integer)
 
 Remove the raw data set for the given month and year, if it exists.
 """

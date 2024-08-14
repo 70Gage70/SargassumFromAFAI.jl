@@ -1,7 +1,7 @@
 """
     const VERTICES_PACIFIC_PANAMA
 
-An matrix of `(x, y)` coordinates (each row is a new coordinate) such that the polygon defined by these coordinates
+An matrix of `(x, y)` coordinates (each row is a new coordinate) such that the polygon defined by these coordinates \
 contain the Pacific side of the Panama Canal. Used to remove Sargassum in this region. 
 """
 const VERTICES_PACIFIC_PANAMA = [
@@ -25,7 +25,7 @@ const VERTICES_PACIFIC_PANAMA = [
 """
     const VERTICES_NORTH_ATLANTIC
 
-An matrix of `(x, y)` coordinates (each row is a new coordinate) such that the polygon defined by these coordinates
+An matrix of `(x, y)` coordinates (each row is a new coordinate) such that the polygon defined by these coordinates \
 contains the North Atlantic with longitudes in `~[-100, -30]` and latitudes in `~[5, 35]`.
 """
 const VERTICES_NORTH_ATLANTIC = [ 
